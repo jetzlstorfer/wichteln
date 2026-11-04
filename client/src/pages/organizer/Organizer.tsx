@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, useParams } from 'react-router';
 import { CalendarHeart, Check, ChevronRight, Crown, Euro, Gift, Megaphone, Users } from 'lucide-react';
 import type { AdminView } from '../../../../shared/types';
 import { Footer, TopBar } from '../../components/Layout';
 import { SaveLinkCard } from '../../components/LinkHints';
 import { ShareButtons } from '../../components/ShareButtons';
-import { Button, ErrorState, Spinner, useToast } from '../../components/ui';
-import { api, errorMessage } from '../../lib/api';
+import { Button, ErrorState, Spinner } from '../../components/ui';
+import { api } from '../../lib/api';
 import { daysBetween, formatDate, formatEuro, pluralPeople, sleepsText } from '../../lib/format';
 import { useDocumentTitle, useLoader } from '../../lib/hooks';
 import { absoluteUrl } from '../../lib/share';
@@ -93,14 +93,24 @@ export function Organizer() {
           shareText={`Mein Organisator-Link für „${group.name}“ (nicht weitergeben):`}
         />
         <StatusSteps view={data} />
-        <SelfCard view={data} token={token} reload={reload} />
+        <SelfCard view={data} token={token} />
+        {group.drawn && data.participants.some((p) => !p.claimed) ? (
+          <div role="alert" className="card text-berry-700">
+            <p className="font-bold">Alte persönliche Links wurden gesperrt</p>
+            <p className="mt-2 text-sm">
+              Diese Runde stammt aus der Version ohne Identitätsprüfung. Namen und Wunschzettel bleiben erhalten.
+              Setze die Auslosung zurück, bestätige alle Personen vor Ort und lose neu aus.
+              Bereits bekannte Zuteilungen lassen sich nicht nachträglich geheim machen.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <InviteSection view={data} />
       <PeopleSection view={data} token={token} reload={reload} />
       <RulesSection view={data} token={token} reload={reload} />
       <DrawSection view={data} token={token} reload={reload} />
-      {group.drawn && (group.revealed || (days !== null && days <= 0)) ? <NextRoundSection view={data} token={token} /> : null}
+      {group.revealed ? <NextRoundSection view={data} token={token} /> : null}
       <SettingsSection view={data} token={token} reload={reload} />
       <DangerSection view={data} token={token} />
       <Footer />
@@ -112,7 +122,7 @@ function StatusSteps({ view }: { view: AdminView }) {
   const people = view.participants;
   const steps = [
     { label: 'Familie eintragen', done: people.length >= 3, href: '#familie' },
-    { label: 'Alle melden sich', done: people.length >= 3 && people.every((p) => p.claimed), href: '#einladen' },
+    { label: 'Alle bestätigen', done: people.length >= 3 && people.every((p) => p.claimed), href: '#familie' },
     { label: 'Auslosen', done: view.group.drawn, href: '#auslosen' },
     { label: 'Bescherung', done: view.group.revealed, href: '#auslosen' },
   ];
@@ -147,11 +157,9 @@ function StatusSteps({ view }: { view: AdminView }) {
 }
 
 /** Organizers who take part need their own participant page – without peeking at anyone else's. */
-function SelfCard({ view, token, reload }: { view: AdminView; token: string; reload: () => Promise<unknown> }) {
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
+function SelfCard({ view, token }: { view: AdminView; token: string }) {
   const me = view.participants.find((p) => p.isOrganizer);
-  const [selfToken, setSelfToken] = useState(() => findRound('orga', token)?.selfToken);
+  const selfToken = findRound('orga', token)?.selfToken;
   if (!me) return null;
 
   if (selfToken) {
@@ -172,31 +180,13 @@ function SelfCard({ view, token, reload }: { view: AdminView; token: string; rel
     );
   }
 
-  const create = async () => {
-    setBusy(true);
-    try {
-      const res = await api.admin.createLink(token, me.id);
-      rememberRound({ kind: 'orga', token, groupName: view.group.name, selfToken: res.token });
-      rememberRound({ kind: 'w', token: res.token, groupName: view.group.name, personName: me.name, inviteCode: view.group.inviteCode });
-      setSelfToken(res.token);
-      await reload();
-    } catch (err) {
-      toast(errorMessage(err), 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="card-dark text-cream-100">
       <p className="font-bold">Deine eigene Wichtel-Seite</p>
       <p className="mt-1 text-sm text-cream-200/85">
-        Auf diesem Handy ist dein persönlicher Link nicht gespeichert.
-        {me.claimed ? ' Wenn du einen neuen erstellst, funktioniert dein bisheriger Link nicht mehr.' : ''}
+        Auf diesem Handy ist dein persönlicher Link nicht gespeichert. Öffne deine gespeicherte Kopie
+        oder übertrage ihn von deinem bisherigen Gerät. Auch der Organisator-Link kann persönliche Links nicht ersetzen.
       </p>
-      <Button size="sm" className="mt-3" loading={busy} onClick={create}>
-        <Gift className="size-4" /> Meine Seite öffnen
-      </Button>
     </div>
   );
 }
@@ -214,7 +204,7 @@ function InviteSection({ view }: { view: AdminView }) {
     .join('\n');
   const text = `✨🎄 Heuer wichteln wir mit dem Christkind! 🎄✨\n\n${group.organizerName} hat die Runde „${group.name}“ gestartet.${
     details ? `\n${details}` : ''
-  }\n\nTipp auf den Link und wähl deinen Namen aus:`;
+  }\n\nWähl deinen Namen und zeig mir den Bestätigungscode persönlich auf deinem Handy. Erst danach bekommst nur du deinen geheimen Wichtel-Link:`;
 
   return (
     <Section
@@ -225,8 +215,8 @@ function InviteSection({ view }: { view: AdminView }) {
         participants.length < 2
           ? 'Trag zuerst unten alle ein – oder schick den Link gleich, dann tragen sich alle selbst ein.'
           : waiting === 0
-            ? 'Alle haben sich gemeldet. 🎉'
-            : `Ein Link für alle, z. B. in die Familiengruppe. ${waiting === 1 ? '1 Person fehlt' : `${waiting} Personen fehlen`} noch.`
+            ? 'Alle sind bestätigt. 🎉'
+            : `Ein Link für alle, z. B. in die Familiengruppe. Danach jeden Code persönlich am Handy vergleichen. ${waiting === 1 ? '1 Bestätigung fehlt' : `${waiting} Bestätigungen fehlen`} noch.`
       }
     >
       <ShareButtons url={url} text={text} title={`Wichteln: ${group.name}`} />

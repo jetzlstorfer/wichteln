@@ -1,12 +1,13 @@
 import type {
   AdminView,
   ChatMessage,
+  ClaimResponse,
+  ClaimView,
   CreateGroupResponse,
   GiftStatus,
   InviteView,
   MeView,
   MessagesView,
-  TokenResponse,
   Wish,
 } from '../../../shared/types';
 
@@ -68,8 +69,8 @@ export const api = {
     updateParticipant: (t: string, id: string, body: { name?: string; partnerId?: string | null }) =>
       request<{ ok: true }>('PATCH', `/admin/${e(t)}/participants/${e(id)}`, body),
     removeParticipant: (t: string, id: string) => request<{ ok: true }>('DELETE', `/admin/${e(t)}/participants/${e(id)}`),
-    createLink: (t: string, id: string) => request<TokenResponse>('POST', `/admin/${e(t)}/participants/${e(id)}/link`),
-    unclaim: (t: string, id: string) => request<{ ok: true }>('POST', `/admin/${e(t)}/participants/${e(id)}/unclaim`),
+    verifyParticipant: (t: string, id: string, verificationCode: string) =>
+      request<{ ok: true }>('POST', `/admin/${e(t)}/participants/${e(id)}/verify`, { verificationCode }),
     addExclusion: (t: string, body: { giverId: string; receiverId: string; both: boolean }) =>
       request<{ ok: true }>('POST', `/admin/${e(t)}/exclusions`, body),
     removeExclusion: (t: string, id: string) => request<{ ok: true }>('DELETE', `/admin/${e(t)}/exclusions/${e(id)}`),
@@ -82,8 +83,9 @@ export const api = {
 
   invite: {
     get: (code: string) => request<InviteView>('GET', `/invite/${e(code)}`),
-    claim: (code: string, participantId: string) => request<TokenResponse>('POST', `/invite/${e(code)}/claim`, { participantId }),
-    join: (code: string, name: string) => request<TokenResponse>('POST', `/invite/${e(code)}/join`, { name }),
+    claim: (code: string, participantId: string) => request<ClaimResponse>('POST', `/invite/${e(code)}/claim`, { participantId }),
+    join: (code: string, name: string) => request<ClaimResponse>('POST', `/invite/${e(code)}/join`, { name }),
+    claimStatus: (t: string) => request<ClaimView>('GET', `/claim/${e(t)}`),
   },
 
   me: {
@@ -92,6 +94,7 @@ export const api = {
     addWish: (t: string, body: { text: string; url?: string | null }) => request<Wish>('POST', `/me/${e(t)}/wishes`, body),
     removeWish: (t: string, id: string) => request<{ ok: true }>('DELETE', `/me/${e(t)}/wishes/${e(id)}`),
     revealSeen: (t: string) => request<{ ok: true }>('POST', `/me/${e(t)}/reveal-seen`),
+    revealConsent: (t: string, consent: boolean) => request<{ ok: true }>('POST', `/me/${e(t)}/reveal-consent`, { consent }),
     openDoor: (t: string, day: number) => request<{ openedDoors: number[] }>('POST', `/me/${e(t)}/doors`, { day }),
     messages: (t: string) => request<MessagesView>('GET', `/me/${e(t)}/messages`),
     send: (t: string, to: 'recipient' | 'christkind', body: string) =>

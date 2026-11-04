@@ -51,7 +51,7 @@ export function attachStatic(app: Hono, db: DB, options: StaticOptions) {
         | undefined;
       if (group) {
         const title = `Einladung zum Wichteln: ${group.name}`;
-        const description = `${group.organizer_name} lädt dich ein – tipp auf den Link, such deinen Namen aus und das Christkind lost aus. ✨`;
+        const description = `${group.organizer_name} lädt dich ein – wähle deinen Namen und bestätige ihn persönlich per Code, bevor das Christkind auslost. ✨`;
         html = setMeta(html, 'property', 'og:title', title);
         html = setMeta(html, 'property', 'og:description', description);
         html = setMeta(html, 'name', 'description', description);
@@ -59,10 +59,12 @@ export function attachStatic(app: Hono, db: DB, options: StaticOptions) {
       }
     }
 
-    if (/^\/(w|orga|einladung)\//.test(c.req.path)) {
+    if (/^\/(w|orga|einladung|bestaetigen)\//.test(c.req.path)) {
       c.header('X-Robots-Tag', 'noindex, nofollow');
+      c.header('Cache-Control', 'no-store');
+    } else {
+      c.header('Cache-Control', 'no-cache');
     }
-    c.header('Cache-Control', 'no-cache');
     return c.html(html);
   };
 

@@ -102,7 +102,7 @@ export function CreateRound() {
           checked={participates}
           onChange={setParticipates}
           label="Ich mache selbst mit"
-          description="Keine Sorge: Auch als Organisator:in siehst du nicht, wer wen gezogen hat."
+          description="Auch als Organisator:in siehst du nur deine eigene Zuteilung. Die gemeinsame Auflösung braucht die Zustimmung aller."
         />
 
         <hr className="border-cream-300" />
@@ -163,7 +163,7 @@ export function CreateRound() {
           checked={allowSelfJoin}
           onChange={setAllowSelfJoin}
           label="Neue Namen dürfen sich selbst eintragen"
-          description="Praktisch, wenn du noch nicht alle eingetragen hast. Geht nur bis zur Auslosung."
+          description="Neue Namen brauchen trotzdem deine persönliche Code-Prüfung vor Ort. Geht nur bis zur Auslosung."
         />
 
         <Button type="submit" className="w-full text-lg" loading={busy}>

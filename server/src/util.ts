@@ -4,6 +4,7 @@ export const newId = () => randomBytes(12).toString('base64url');
 export const newToken = () => randomBytes(18).toString('base64url');
 export const newAdminToken = () => randomBytes(24).toString('base64url');
 export const newInviteCode = () => randomBytes(9).toString('base64url');
+export const newVerificationCode = () => randomBytes(5).toString('hex').toUpperCase();
 
 export const TOKEN_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 

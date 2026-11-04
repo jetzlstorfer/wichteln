@@ -19,7 +19,7 @@ const STEPS = [
     w: 159,
     h: 256,
     title: 'Link in die Familiengruppe',
-    text: 'Ein Link für alle – per WhatsApp oder Signal. Jede:r tippt den eigenen Namen an.',
+    text: 'Ein Link für alle. Jede:r wählt den Namen und zeigt den Code persönlich am eigenen Handy vor.',
   },
   {
     img: '/img/packerl-256.webp',
@@ -38,9 +38,9 @@ const STEPS = [
 ];
 
 const FEATURES = [
-  { icon: Smartphone, title: 'Ohne Anmeldung', text: 'Kein Passwort, keine E-Mail – einfach ein Link.' },
+  { icon: Smartphone, title: 'Ohne Passwort', text: 'Einmal vor Ort bestätigen, danach dein privater Link.' },
   { icon: HeartHandshake, title: 'Paare ziehen sich nie', text: 'Und eigene Ausnahmen gehen auch.' },
-  { icon: EyeOff, title: 'Wirklich geheim', text: 'Nicht einmal die Organisatorin sieht, wer wen hat.' },
+  { icon: EyeOff, title: 'Deine Zuteilung', text: 'Kein Organisator-Zugriff auf fremde persönliche Links.' },
   { icon: MessageCircleQuestion, title: 'Anonyme Fragen', text: '„Welche Größe hast du?“ – ohne sich zu verraten.' },
 ];
 
@@ -82,7 +82,7 @@ export function Home() {
             <Link to="/neu" className="btn btn-primary mt-6 w-full max-w-sm text-lg">
               <Gift className="size-5" /> Neue Wichtel-Runde starten
             </Link>
-            <p className="mt-3 text-sm text-cream-200/80">Kostenlos · ohne Anmeldung · in 2 Minuten erledigt</p>
+            <p className="mt-3 text-sm text-cream-200/80">Kostenlos · ohne Passwort · persönlich bestätigt</p>
           </div>
 
           {rounds.length > 0 ? (

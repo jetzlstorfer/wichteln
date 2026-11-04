@@ -17,7 +17,8 @@ export function Privacy() {
         <ul className="list-disc space-y-1 pl-5">
           <li>Name der Runde, Budget, Datum der Bescherung und die Nachricht der Organisator:in</li>
           <li>die eingetragenen Vornamen bzw. Spitznamen sowie Paare und Ausnahmen</li>
-          <li>wer wen gezogen hat – das sieht niemand, bis die Organisator:in die Auflösung freigibt</li>
+          <li>wer wen gezogen hat – jede Person sieht nur die eigene Zuteilung; eine gemeinsame Auflösung braucht die Zustimmung aller</li>
+          <li>vorübergehende Bestätigungscodes (30 Minuten gültig) und der Zeitpunkt der persönlichen Prüfung</li>
           <li>freiwillig: Wunschzettel, ein paar Worte über dich und die anonymen Nachrichten</li>
           <li>wann jemand zuletzt vorbeigeschaut hat und ob die eigene Zuteilung schon angesehen wurde</li>
         </ul>
@@ -30,8 +31,21 @@ export function Privacy() {
 
         <h2>Deine Links sind deine Schlüssel</h2>
         <p>
-          Wer einen persönlichen Link kennt, kann die zugehörige Seite öffnen. Gib ihn deshalb nicht weiter. Wenn ein Link in
-          falsche Hände geraten ist, kann die Organisator:in ihn sperren und einen neuen erstellen.
+          Wer einen persönlichen Link kennt, kann die zugehörige Seite öffnen. Gib ihn deshalb nicht weiter und sichere eine
+          Kopie für dich. Die Organisator:in kann ihn weder abrufen noch ersetzen. Ohne gespeicherte Kopie ist keine
+          Wiederherstellung möglich. Bei einem weitergegebenen Link müsst ihr die betroffene Runde löschen und neu starten.
+        </p>
+
+        <h2>Persönliche Bestätigung statt Namensraten</h2>
+        <p>
+          Der gemeinsame Einladungslink gibt allein keinen persönlichen Zugang. Zeig deinen Code direkt auf deinem eigenen
+          Handy vor. Die Organisator:in prüft vor Ort, dass du die richtige Person bist, und bestätigt den Code.
+          Nur dein Browser erhält danach den Zugang. Wir vertrauen dabei auf eine ehrliche persönliche Prüfung;
+          die App kann die Identität nicht selbst erkennen. Screenshots und weitergeleitete Codes reichen dafür nicht.
+        </p>
+        <p>
+          Das schützt vor Zugriffen über den Organisator-Link, ist aber keine Ende-zu-Ende-Verschlüsselung.
+          Wer den Server oder die Datenbank betreibt, kann technisch auf die gespeicherten Zuteilungen zugreifen.
         </p>
 
         <h2>Automatisches Löschen</h2>

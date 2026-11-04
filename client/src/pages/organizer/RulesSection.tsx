@@ -188,8 +188,8 @@ export function RulesSection({ view, token, reload }: { view: AdminView; token: 
             <History className="size-4" /> Wie im Vorjahr? Lieber nicht!
           </h3>
           <p className="mt-1 text-sm text-ink-700">
-            Niemand zieht dieselbe Person wie letztes Jahr ({lastYear.length} {lastYear.length === 1 ? 'Regel' : 'Regeln'}). Wer
-            wen hatte, bleibt natürlich geheim.
+            Niemand zieht dieselbe Person wie letztes Jahr ({lastYear.length} {lastYear.length === 1 ? 'Regel' : 'Regeln'}).
+            Diese Regeln stammen aus der bereits gemeinsam freigegebenen Vorjahres-Auflösung.
           </p>
           {!drawn ? (
             <TwoStepButton

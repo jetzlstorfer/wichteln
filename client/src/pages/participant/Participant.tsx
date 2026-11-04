@@ -45,7 +45,7 @@ export function Participant() {
         <ErrorState
           message={
             error?.status === 404
-              ? 'Diesen Link gibt es nicht (mehr). Vielleicht hat die Organisatorin oder der Organisator dir einen neuen geschickt?'
+              ? 'Dieser Link ist nicht mehr gültig oder noch nicht bestätigt. Verwende deine gespeicherte Kopie. Bei älteren Runden frag die organisierende Person nach der neuen Bestätigung vor Ort.'
               : (error?.message ?? 'Da ist etwas schiefgegangen.')
           }
           action={

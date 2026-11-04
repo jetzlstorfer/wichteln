@@ -5,6 +5,7 @@ import { ErrorState, ToastProvider } from './components/ui';
 import { Home } from './pages/Home';
 import { CreateRound } from './pages/CreateRound';
 import { Invite } from './pages/Invite';
+import { VerifyClaim } from './pages/VerifyClaim';
 import { Organizer } from './pages/organizer/Organizer';
 import { Participant } from './pages/participant/Participant';
 import { Privacy } from './pages/Privacy';
@@ -70,6 +71,7 @@ export function App() {
           <Route path="/" element={<Home />} />
           <Route path="/neu" element={<CreateRound />} />
           <Route path="/einladung/:code" element={<Invite />} />
+          <Route path="/bestaetigen/:token" element={<VerifyClaim />} />
           <Route path="/orga/:token" element={<Organizer />} />
           <Route path="/w/:token/:tab?" element={<Participant />} />
           <Route path="/datenschutz" element={<Privacy />} />

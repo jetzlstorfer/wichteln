@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, PartyPopper, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react';
+import { Eye, PartyPopper, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react';
 import type { AdminView } from '../../../../shared/types';
 import { RevealChainList } from '../../components/RevealChainList';
 import { Button, ConfirmSheet, useToast } from '../../components/ui';
@@ -51,10 +51,10 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
             ) : (
               <>
                 <p className="font-bold text-ink-900">
-                  {claimed} von {total} {claimed === 1 ? 'hat' : 'haben'} sich gemeldet.
+                  {claimed} von {total} bestätigt.
                 </p>
                 <p className="mt-1">
-                  Du kannst auch schon auslosen, bevor alle da sind – wer später kommt, sieht die Zuteilung dann sofort.
+                  Alle müssen zuerst ihren Code persönlich vorzeigen und bestätigt werden. Erst dann kann das Christkind auslosen.
                 </p>
               </>
             )}
@@ -66,7 +66,7 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
             {drawError}
           </div>
         ) : null}
-        <Button className="mt-4 w-full text-lg" disabled={total < 3} onClick={() => setConfirm('draw')}>
+        <Button className="mt-4 w-full text-lg" disabled={total < 3 || claimed !== total} onClick={() => setConfirm('draw')}>
           <Sparkles className="size-5" /> Jetzt auslosen
         </Button>
         <ConfirmSheet
@@ -81,7 +81,7 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
             Das Christkind lost jetzt für {total} Personen aus. Danach lassen sich Personen und Regeln nicht mehr ändern – außer
             du setzt die Auslosung zurück.
           </p>
-          <p className="mt-2 font-bold">Niemand sieht, wer wen gezogen hat – auch du nicht.</p>
+          <p className="mt-2 font-bold">Jede Person sieht nur die eigene Zuteilung – auch du. Eine gemeinsame Auflösung braucht später die Zustimmung aller.</p>
         </ConfirmSheet>
       </Section>
     );
@@ -118,22 +118,16 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
             <div className="mt-3">
               <RevealChainList pairs={view.reveal ?? []} />
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              loading={busy === 'hide'}
-              onClick={() => run('hide', () => api.admin.reveal(token, false), 'Auflösung wieder versteckt')}
-            >
-              <EyeOff className="size-4" /> Wieder verstecken
-            </Button>
+            <p className="mt-3 text-sm text-ink-500">Alle haben zugestimmt. Diese Veröffentlichung lässt sich nicht rückgängig machen.</p>
           </>
         ) : (
           <>
             <p className="mt-1 text-sm text-ink-700">
-              Nach der Bescherung kannst du allen zeigen, wer wessen Christkind war. Bis dahin bleibt alles geheim.
+              Nach der Bescherung stimmt jede Person auf ihrer eigenen Wichtel-Seite zu.
+              Erst wenn alle einverstanden sind, kannst du die Auflösung veröffentlichen.
             </p>
-            <Button variant="fir" size="sm" className="mt-3" onClick={() => setConfirm('reveal')}>
+            <p className="mt-2 text-sm font-bold">{view.revealConsentCount} von {total} haben zugestimmt.</p>
+            <Button variant="fir" size="sm" className="mt-3" disabled={view.revealConsentCount !== total} onClick={() => setConfirm('reveal')}>
               <Eye className="size-4" /> Auflösung zeigen
             </Button>
           </>
@@ -157,7 +151,7 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
         confirmLabel="Ja, Auflösung zeigen"
         variant="fir"
       >
-        <p>Alle sehen dann, wer wen gezogen hat – am besten erst nach der Bescherung. Du kannst sie wieder verstecken.</p>
+        <p>Alle haben zugestimmt. Danach sehen alle dauerhaft, wer wen gezogen hat. Das lässt sich nicht rückgängig machen.</p>
       </ConfirmSheet>
 
       <ConfirmSheet

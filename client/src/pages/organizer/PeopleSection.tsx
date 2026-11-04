@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Eye, EyeOff, Gift, Heart, Link2, Plus, UserCheck, UserRound, Users } from 'lucide-react';
+import { Eye, EyeOff, Gift, Heart, ShieldCheck, Plus, UserCheck, UserRound, Users } from 'lucide-react';
 import { LIMITS, type AdminParticipant, type AdminView } from '../../../../shared/types';
-import { ShareButtons } from '../../components/ShareButtons';
 import { Button, Initials, Sheet } from '../../components/ui';
 import { api } from '../../lib/api';
 import { pluralPeople, relativeTime } from '../../lib/format';
 import { firstName } from '../../lib/reveal';
-import { absoluteUrl } from '../../lib/share';
 import { Section, TwoStepButton, useAction } from './shared';
 
 export function PeopleSection({ view, token, reload }: { view: AdminView; token: string; reload: () => Promise<unknown> }) {
@@ -39,7 +37,7 @@ export function PeopleSection({ view, token, reload }: { view: AdminView; token:
       intro={
         people.length === 0
           ? 'Trag alle ein, die mitwichteln – Vornamen oder Spitznamen reichen.'
-          : `${pluralPeople(people.length)} · ${claimedCount} ${claimedCount === 1 ? 'hat' : 'haben'} sich schon gemeldet. Tipp auf einen Namen für mehr.`
+          : `${pluralPeople(people.length)} · ${claimedCount} von ${people.length} bestätigt. Tipp auf einen Namen, um den Code vor Ort zu vergleichen.`
       }
     >
       {!drawn ? (
@@ -118,7 +116,7 @@ function StatusLine({ p, drawn }: { p: AdminParticipant; drawn: boolean }) {
   if (!p.claimed) {
     return (
       <span className="flex min-w-0 items-center gap-1 text-sm text-ink-500">
-        <UserRound className="size-3.5 shrink-0" /> wartet auf Anmeldung
+        <UserRound className="size-3.5 shrink-0" /> noch nicht bestätigt
       </span>
     );
   }
@@ -136,7 +134,7 @@ function StatusLine({ p, drawn }: { p: AdminParticipant; drawn: boolean }) {
   return (
     <span className="flex min-w-0 items-center gap-1 text-sm text-fir-600">
       <UserCheck className="size-3.5 shrink-0" />
-      {p.tokenSource === 'organizer' ? 'Link von dir erstellt' : 'ist dabei'}
+      ist bestätigt
       {p.lastSeenAt ? <span className="text-ink-300"> · {relativeTime(p.lastSeenAt)}</span> : null}
     </span>
   );
@@ -157,12 +155,14 @@ function PersonSheet({
 }) {
   const { busy, run } = useAction(reload);
   const [name, setName] = useState('');
-  const [link, setLink] = useState<string | null>(null);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [checkedInPerson, setCheckedInPerson] = useState(false);
   const personId = person?.id;
 
   useEffect(() => {
     setName(person?.name ?? '');
-    setLink(null);
+    setVerificationCode('');
+    setCheckedInPerson(false);
     // Only reset when a different person is opened, not on background refreshes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personId]);
@@ -178,11 +178,14 @@ function PersonSheet({
     }
   };
 
-  const createLink = () =>
-    run('link', async () => {
-      const res = await api.admin.createLink(token, person.id);
-      setLink(absoluteUrl(`/w/${res.token}`));
-    });
+  const verify = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!checkedInPerson) return;
+    if (await run('verify', () => api.admin.verifyParticipant(token, person.id, verificationCode), `${person.name} bestätigt`)) {
+      setVerificationCode('');
+      setCheckedInPerson(false);
+    }
+  };
 
   return (
     <Sheet open onClose={onClose} title={person.name} image={<Initials name={person.name} className="mb-3 !size-14 !text-lg" />}>
@@ -221,54 +224,39 @@ function PersonSheet({
 
       <div className="mt-5 rounded-2xl border border-cream-300 p-4">
         <h3 className="flex items-center gap-2 font-bold">
-          <Link2 className="size-4 text-gold-600" /> Persönlicher Link
+          <ShieldCheck className="size-4 text-gold-600" /> Persönlich bestätigen
         </h3>
-        {link ? (
-          <div className="mt-3 space-y-3">
-            <p className="rounded-xl bg-gold-100 p-3 text-sm text-ink-700">
-              Schick den Link nur an {person.name} – und öffne ihn bitte nicht selbst, sonst siehst du, wen{' '}
-              {firstName(person.name)} gezogen hat. 🤫
-            </p>
-            <ShareButtons
-              url={link}
-              title={`Wichteln: ${view.group.name}`}
-              text={`Hallo ${firstName(person.name)}! 🎄 Hier ist dein persönlicher Link fürs Wichteln „${view.group.name}“. Bitte nicht weitergeben:`}
-            />
-          </div>
+        {person.claimed ? (
+          <p className="mt-2 text-sm text-ink-700">
+            {firstName(person.name)} ist bestätigt. Der persönliche Link gehört nur dieser Person.
+            Du kannst ihn weder anzeigen noch ersetzen. Bei Verlust hilft nur eine gespeicherte Kopie;
+            ohne Kopie braucht ihr eine neue Runde.
+          </p>
+        ) : drawn ? (
+          <p className="mt-2 text-sm text-berry-600">
+            Diese ältere Runde enthält noch unbestätigte Zugänge. Setze zuerst die Auslosung zurück,
+            bestätige alle Personen vor Ort und lose neu aus. Alte Zuteilungen können bereits bekannt sein.
+          </p>
         ) : (
-          <>
-            <p className="mt-1 text-sm text-ink-500">
-              {person.claimed
-                ? `${firstName(person.name)} hat schon einen Link. Ist er verloren gegangen, kannst du einen neuen erstellen – der alte funktioniert dann nicht mehr.`
-                : `Praktisch, wenn ${firstName(person.name)} kein WhatsApp hat: Du erstellst den Link und schickst ihn selbst.`}
+          <form onSubmit={verify} className="mt-3 space-y-3">
+            <p className="text-sm text-ink-700">
+              {firstName(person.name)} öffnet die Einladung auf dem eigenen Handy und wählt den Namen.
+              Vergleiche den dort angezeigten Code persönlich – keine fremden Screenshots oder weitergeleiteten Codes.
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {person.claimed ? (
-                <TwoStepButton onConfirm={createLink} loading={busy === 'link'} confirmLabel="Ja, neuen Link erstellen">
-                  Neuen Link erstellen
-                </TwoStepButton>
-              ) : (
-                <Button size="sm" variant="fir" onClick={createLink} loading={busy === 'link'}>
-                  Link erstellen
-                </Button>
-              )}
-              {person.claimed ? (
-                <TwoStepButton
-                  onConfirm={() => run('unclaim', () => api.admin.unclaim(token, person.id), 'Name wieder freigegeben')}
-                  loading={busy === 'unclaim'}
-                  confirmLabel="Ja, freigeben"
-                >
-                  Name freigeben
-                </TwoStepButton>
-              ) : null}
-            </div>
-            {person.claimed ? (
-              <p className="mt-2 text-xs text-ink-500">
-                „Name freigeben“ hilft, wenn sich jemand beim Namen vertippt hat – danach kann der Name in der Einladung neu
-                gewählt werden.
-              </p>
-            ) : null}
-          </>
+            <label htmlFor="verification-code" className="field-label">Code vom Handy</label>
+            <input id="verification-code" className="input font-mono uppercase" required
+              value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)}
+              placeholder="ABCDE-12345" maxLength={11} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
+            <label className="flex items-start gap-2 text-sm text-ink-700">
+              <input type="checkbox" className="mt-1 size-4 shrink-0" required checked={checkedInPerson}
+                onChange={(e) => setCheckedInPerson(e.target.checked)} />
+              Ich habe {person.name} und den Code auf dem eigenen Handy persönlich überprüft.
+            </label>
+            <Button type="submit" variant="fir" className="w-full" loading={busy === 'verify'}
+              disabled={!checkedInPerson || !/^[A-Fa-f0-9]{10}$/.test(verificationCode.replace(/[\s-]/g, ''))}>
+              Vor Ort bestätigen
+            </Button>
+          </form>
         )}
       </div>
 

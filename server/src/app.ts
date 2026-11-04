@@ -13,6 +13,7 @@ import {
   newId,
   newInviteCode,
   newToken,
+  newVerificationCode,
   nowIso,
   viennaToday,
 } from './util';
@@ -20,6 +21,7 @@ import {
   LIMITS,
   type AdminView,
   type ChatMessage,
+  type ClaimView,
   type CreateGroupResponse,
   type GiftStatus,
   type GroupInfo,
@@ -54,6 +56,8 @@ interface ParticipantRow {
   token: string | null;
   token_source: 'self' | 'organizer' | null;
   claimed_at: string | null;
+  verified_at: string | null;
+  reveal_consent_at: string | null;
   last_seen_at: string | null;
   reveal_seen_at: string | null;
   partner_id: string | null;
@@ -141,6 +145,7 @@ export function createApp(db: DB, options: AppOptions = {}) {
     general: new RateLimiter(600, 5 * 60_000),
     create: new RateLimiter(10, 60 * 60_000),
     claim: new RateLimiter(30, 10 * 60_000),
+    verify: new RateLimiter(20, 10 * 60_000),
     chat: new RateLimiter(40, 10 * 60_000),
   };
 
@@ -178,7 +183,7 @@ export function createApp(db: DB, options: AppOptions = {}) {
 
   const getMe = (token: string): { me: ParticipantRow; group: GroupRow } => {
     if (!TOKEN_PATTERN.test(token)) throw new HttpError(404, 'not-found', 'Dieser persönliche Link ist nicht (mehr) gültig.');
-    const me = db.prepare('SELECT * FROM participants WHERE token = ?').get(token) as ParticipantRow | undefined;
+    const me = db.prepare('SELECT * FROM participants WHERE token = ? AND verified_at IS NOT NULL').get(token) as ParticipantRow | undefined;
     if (!me) throw new HttpError(404, 'not-found', 'Dieser persönliche Link ist nicht (mehr) gültig.');
     const group = db.prepare('SELECT * FROM groups WHERE id = ?').get(me.group_id) as unknown as GroupRow;
     return { me, group };
@@ -287,10 +292,22 @@ export function createApp(db: DB, options: AppOptions = {}) {
     const id = newId();
     const now = nowIso();
     db.prepare(
-      `INSERT INTO participants (id, group_id, name, token, token_source, claimed_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(id, groupId, name, token, source, token ? now : null, now);
+      `INSERT INTO participants (id, group_id, name, token, token_source, claimed_at, verified_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(id, groupId, name, token, source, token ? now : null, token ? now : null, now);
     return id;
+  };
+
+  const requestClaim = (person: ParticipantRow) => {
+    if (person.token) {
+      throw new HttpError(409, 'already-claimed', `„${person.name}“ ist bereits bestätigt. Verwende deinen gespeicherten persönlichen Link.`);
+    }
+    db.prepare('DELETE FROM claim_requests WHERE expires_at <= ?').run(nowIso());
+    const claimToken = newToken();
+    db.prepare(
+      'INSERT INTO claim_requests (token, participant_id, verification_code, expires_at) VALUES (?, ?, ?, ?)',
+    ).run(claimToken, person.id, newVerificationCode(), new Date(Date.now() + 30 * 60_000).toISOString());
+    return { claimToken };
   };
 
   // ----- middleware -----
@@ -402,7 +419,6 @@ export function createApp(db: DB, options: AppOptions = {}) {
         id: p.id,
         name: p.name,
         claimed: Boolean(p.token),
-        tokenSource: p.token ? p.token_source : null,
         lastSeenAt: p.last_seen_at,
         revealSeen: Boolean(p.reveal_seen_at),
         partnerId: p.partner_id,
@@ -412,6 +428,7 @@ export function createApp(db: DB, options: AppOptions = {}) {
         isOrganizer: p.id === group.organizer_participant_id,
       })),
       exclusions: exclusions.map((e) => ({ id: e.id, giverId: e.giver_id, receiverId: e.receiver_id, reason: e.reason })),
+      revealConsentCount: people.filter((p) => p.reveal_consent_at).length,
       today: viennaToday(),
     };
     if (group.revealed_at) view.reveal = revealPairs(group);
@@ -506,26 +523,26 @@ export function createApp(db: DB, options: AppOptions = {}) {
     return c.json({ ok: true });
   });
 
-  /** Organizer creates a personal link manually, e.g. for Oma without WhatsApp. */
-  app.post('/api/admin/:token/participants/:id/link', (c) => {
-    const group = getGroupByAdmin(c.req.param('token'));
-    const person = participantOf(group, c.req.param('id'));
-    const token = newToken();
-    db.prepare("UPDATE participants SET token = ?, token_source = 'organizer', claimed_at = ? WHERE id = ?").run(
-      token,
-      nowIso(),
-      person.id,
-    );
-    return c.json({ token });
-  });
-
-  /** Releases a name again (e.g. someone tapped the wrong name). Invalidates the old link. */
-  app.post('/api/admin/:token/participants/:id/unclaim', (c) => {
-    const group = getGroupByAdmin(c.req.param('token'));
-    const person = participantOf(group, c.req.param('id'));
-    db.prepare(
-      'UPDATE participants SET token = NULL, token_source = NULL, claimed_at = NULL, last_seen_at = NULL, reveal_seen_at = NULL WHERE id = ?',
-    ).run(person.id);
+  app.post('/api/admin/:token/participants/:id/verify', async (c) => {
+    const { verificationCode } = await readJson(c, z.object({
+      verificationCode: z.string().transform((s) => s.replace(/[\s-]/g, '').toUpperCase()).pipe(z.string().regex(/^[A-F0-9]{10}$/)),
+    }));
+    transaction(db, () => {
+      const group = getGroupByAdmin(c.req.param('token'));
+      limit(c, limiters.verify, group.id);
+      ensureNotDrawn(group);
+      const person = participantOf(group, c.req.param('id'));
+      if (person.token) throw new HttpError(409, 'already-claimed', 'Diese Person ist bereits bestätigt. Ihr Link kann nicht ersetzt werden.');
+      const request = db.prepare(
+        'SELECT token FROM claim_requests WHERE participant_id = ? AND verification_code = ? AND expires_at > ?',
+      ).get(person.id, verificationCode, nowIso()) as { token: string } | undefined;
+      if (!request) throw new HttpError(400, 'invalid-code', 'Dieser Code passt nicht oder ist abgelaufen. Bitte direkt am Handy der Person vergleichen.');
+      db.prepare(
+        "UPDATE participants SET token = ?, token_source = 'self', claimed_at = ?, verified_at = ? WHERE id = ?",
+      ).run(request.token, nowIso(), nowIso(), person.id);
+      db.prepare('DELETE FROM claim_requests WHERE participant_id = ?').run(person.id);
+      touchGroup(group.id);
+    });
     return c.json({ ok: true });
   });
 
@@ -566,6 +583,9 @@ export function createApp(db: DB, options: AppOptions = {}) {
     const group = getGroupByAdmin(c.req.param('token'));
     ensureNotDrawn(group);
     const people = participantsOf(group.id);
+    if (people.some((p) => !p.token || !p.verified_at)) {
+      throw new HttpError(409, 'unverified-participants', 'Bitte zuerst alle Personen durch einen Code-Vergleich vor Ort bestätigen.');
+    }
     const forbidden = new Set<string>();
     for (const p of people) if (p.partner_id) forbidden.add(pairKey(p.id, p.partner_id));
     const exclusions = db.prepare('SELECT giver_id, receiver_id FROM exclusions WHERE group_id = ?').all(group.id) as {
@@ -594,7 +614,8 @@ export function createApp(db: DB, options: AppOptions = {}) {
       db.prepare('DELETE FROM assignments WHERE group_id = ?').run(group.id);
       const insert = db.prepare('INSERT INTO assignments (giver_id, group_id, receiver_id) VALUES (?, ?, ?)');
       for (const [giver, receiver] of result.pairs) insert.run(giver, group.id, receiver);
-      db.prepare('UPDATE participants SET reveal_seen_at = NULL WHERE group_id = ?').run(group.id);
+      db.prepare('UPDATE participants SET reveal_seen_at = NULL, reveal_consent_at = NULL WHERE group_id = ?').run(group.id);
+      db.prepare('DELETE FROM claim_requests WHERE participant_id IN (SELECT id FROM participants WHERE group_id = ?)').run(group.id);
       db.prepare('UPDATE groups SET drawn_at = ?, revealed_at = NULL, updated_at = ? WHERE id = ?').run(nowIso(), nowIso(), group.id);
     });
     return c.json({ ok: true, mutualPairs: result.mutualPairs });
@@ -605,16 +626,22 @@ export function createApp(db: DB, options: AppOptions = {}) {
     transaction(db, () => {
       db.prepare('DELETE FROM assignments WHERE group_id = ?').run(group.id);
       db.prepare('DELETE FROM messages WHERE group_id = ?').run(group.id);
-      db.prepare('UPDATE participants SET reveal_seen_at = NULL WHERE group_id = ?').run(group.id);
+      db.prepare('UPDATE participants SET reveal_seen_at = NULL, reveal_consent_at = NULL WHERE group_id = ?').run(group.id);
       db.prepare('UPDATE groups SET drawn_at = NULL, revealed_at = NULL, updated_at = ? WHERE id = ?').run(nowIso(), group.id);
     });
     return c.json({ ok: true });
   });
 
   app.post('/api/admin/:token/reveal', async (c) => {
-    const group = getGroupByAdmin(c.req.param('token'));
     const { revealed } = await readJson(c, z.object({ revealed: z.boolean() }));
+    const group = getGroupByAdmin(c.req.param('token'));
     if (!group.drawn_at) throw new HttpError(409, 'not-drawn', 'Es wurde noch nicht ausgelost.');
+    if (!revealed && group.revealed_at) {
+      throw new HttpError(409, 'already-revealed', 'Eine veröffentlichte Auflösung lässt sich nicht wieder geheim machen.');
+    }
+    if (revealed && participantsOf(group.id).some((p) => !p.reveal_consent_at)) {
+      throw new HttpError(409, 'consent-required', 'Die Auflösung bleibt geheim, bis alle auf ihrer eigenen Seite zugestimmt haben.');
+    }
     db.prepare('UPDATE groups SET revealed_at = ?, updated_at = ? WHERE id = ?').run(revealed ? nowIso() : null, nowIso(), group.id);
     return c.json({ ok: true });
   });
@@ -622,7 +649,6 @@ export function createApp(db: DB, options: AppOptions = {}) {
   /** "Nächstes Jahr wieder": copies people, partners and rules; last year's pairs become exclusions. */
   app.post('/api/admin/:token/next-round', async (c) => {
     limit(c, limiters.create);
-    const group = getGroupByAdmin(c.req.param('token'));
     const body = await readJson(
       c,
       z.object({
@@ -631,6 +657,10 @@ export function createApp(db: DB, options: AppOptions = {}) {
         budget: budget.optional(),
       }),
     );
+    const group = getGroupByAdmin(c.req.param('token'));
+    if (!group.revealed_at) {
+      throw new HttpError(409, 'reveal-required', 'Die Vorjahres-Paarungen können erst nach der gemeinsam freigegebenen Auflösung übernommen werden.');
+    }
     const result = transaction(db, () => {
       const next = createGroup({
         name: body.name,
@@ -689,40 +719,47 @@ export function createApp(db: DB, options: AppOptions = {}) {
 
   app.post('/api/invite/:code/claim', async (c) => {
     limit(c, limiters.claim);
-    const group = getGroupByInvite(c.req.param('code'));
     const { participantId } = await readJson(c, z.object({ participantId: z.string() }));
-    const person = participantOf(group, participantId);
-    const token = newToken();
-    const res = db
-      .prepare("UPDATE participants SET token = ?, token_source = 'self', claimed_at = ? WHERE id = ? AND token IS NULL")
-      .run(token, nowIso(), person.id);
-    if (Number(res.changes) === 0) {
-      throw new HttpError(
-        409,
-        'already-claimed',
-        `„${person.name}“ wurde schon ausgewählt. Wenn du das nicht warst, sag bitte ${group.organizer_name} Bescheid.`,
-      );
-    }
-    return c.json({ token });
+    const group = getGroupByInvite(c.req.param('code'));
+    ensureNotDrawn(group);
+    return c.json(requestClaim(participantOf(group, participantId)), 201);
   });
 
   app.post('/api/invite/:code/join', async (c) => {
     limit(c, limiters.claim);
+    const { name } = await readJson(c, z.object({ name: personName }));
     const group = getGroupByInvite(c.req.param('code'));
     if (group.drawn_at) throw new HttpError(409, 'already-drawn', 'Es wurde schon ausgelost – neue Personen können nicht mehr dazukommen.');
     if (!group.allow_self_join) throw new HttpError(403, 'join-disabled', `Bitte frag ${group.organizer_name}, ob du dazukommen kannst.`);
-    const { name } = await readJson(c, z.object({ name: personName }));
-    const token = newToken();
-    transaction(db, () => {
+    const request = transaction(db, () => {
       const { count } = db.prepare('SELECT COUNT(*) AS count FROM participants WHERE group_id = ?').get(group.id) as { count: number };
       if (Number(count) >= LIMITS.participants) throw new HttpError(422, 'too-many', 'Die Runde ist leider schon voll.');
       if (nameTaken(db, group.id, name)) {
         throw new HttpError(409, 'name-taken', `„${name}“ gibt es schon. Bist du das? Dann wähle den Namen oben aus.`);
       }
-      insertParticipant(group.id, name, token, 'self');
+      const id = insertParticipant(group.id, name, null, null);
       touchGroup(group.id);
+      return requestClaim(participantOf(group, id));
     });
-    return c.json({ token }, 201);
+    return c.json(request, 201);
+  });
+
+  app.get('/api/claim/:token', (c) => {
+    const token = c.req.param('token');
+    if (!TOKEN_PATTERN.test(token)) throw new HttpError(404, 'not-found', 'Diese Bestätigung ist nicht gültig.');
+    const verified = db.prepare('SELECT * FROM participants WHERE token = ? AND verified_at IS NOT NULL').get(token) as ParticipantRow | undefined;
+    if (verified) {
+      const group = db.prepare('SELECT * FROM groups WHERE id = ?').get(verified.group_id) as unknown as GroupRow;
+      return c.json({ status: 'verified', name: verified.name, groupName: group.name, inviteCode: group.invite_code } satisfies ClaimView);
+    }
+    const request = db.prepare(
+      `SELECT p.name, g.name AS groupName, g.invite_code AS inviteCode,
+              r.verification_code AS verificationCode, r.expires_at AS expiresAt
+       FROM claim_requests r JOIN participants p ON p.id = r.participant_id JOIN groups g ON g.id = p.group_id
+       WHERE r.token = ? AND r.expires_at > ? AND p.token IS NULL AND g.drawn_at IS NULL`,
+    ).get(token, nowIso()) as { name: string; groupName: string; inviteCode: string; verificationCode: string; expiresAt: string } | undefined;
+    if (!request) throw new HttpError(404, 'claim-expired', 'Diese Anfrage ist abgelaufen oder wurde durch eine andere Bestätigung ersetzt. Öffne die Einladung erneut oder frag die organisierende Person.');
+    return c.json({ status: 'pending', ...request } satisfies ClaimView);
   });
 
   // ----- participant -----
@@ -755,6 +792,7 @@ export function createApp(db: DB, options: AppOptions = {}) {
         wishes: wishesOf(me.id),
         isOrganizer: me.id === group.organizer_participant_id,
         revealSeen: Boolean(me.reveal_seen_at),
+        revealConsent: Boolean(me.reveal_consent_at),
       },
       group: groupInfo(group),
       participants: people.map((p) => ({ id: p.id, name: p.name, giftStatus: p.gift_status as GiftStatus, isMe: p.id === me.id })),
@@ -812,6 +850,15 @@ export function createApp(db: DB, options: AppOptions = {}) {
   app.post('/api/me/:token/reveal-seen', (c) => {
     const { me } = getMe(c.req.param('token'));
     db.prepare('UPDATE participants SET reveal_seen_at = COALESCE(reveal_seen_at, ?) WHERE id = ?').run(nowIso(), me.id);
+    return c.json({ ok: true });
+  });
+
+  app.post('/api/me/:token/reveal-consent', async (c) => {
+    const { consent } = await readJson(c, z.object({ consent: z.boolean() }));
+    const { me, group } = getMe(c.req.param('token'));
+    if (!group.drawn_at) throw new HttpError(409, 'not-drawn', 'Es wurde noch nicht ausgelost.');
+    if (group.revealed_at) throw new HttpError(409, 'already-revealed', 'Die Auflösung wurde bereits veröffentlicht.');
+    db.prepare('UPDATE participants SET reveal_consent_at = ? WHERE id = ?').run(consent ? nowIso() : null, me.id);
     return c.json({ ok: true });
   });
 

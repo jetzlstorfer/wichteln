@@ -4,7 +4,7 @@ import path from 'node:path';
 
 export type DB = DatabaseSync;
 
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: readonly string[] = [
   `
   CREATE TABLE groups (
     id TEXT PRIMARY KEY,
@@ -80,6 +80,24 @@ const MIGRATIONS: string[] = [
     read_at TEXT
   );
   CREATE INDEX idx_messages_pair ON messages(giver_id, receiver_id);
+  `,
+  `
+  ALTER TABLE participants ADD COLUMN verified_at TEXT;
+  ALTER TABLE participants ADD COLUMN reveal_consent_at TEXT;
+
+  -- Only the creator's own link had an established owner in the old flow.
+  UPDATE participants SET verified_at = claimed_at
+  WHERE token IS NOT NULL AND id IN (SELECT organizer_participant_id FROM groups);
+  UPDATE participants SET token = NULL, token_source = NULL, claimed_at = NULL
+  WHERE verified_at IS NULL;
+
+  CREATE TABLE claim_requests (
+    token TEXT PRIMARY KEY,
+    participant_id TEXT NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
+    verification_code TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL
+  );
+  CREATE INDEX idx_claim_requests_participant ON claim_requests(participant_id);
   `,
 ];
 

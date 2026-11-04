@@ -4,7 +4,7 @@ import { CalendarHeart, ExternalLink, Eye, EyeOff, MessageCircleQuestion, PartyP
 import type { GiftStatus, MeView, Wish } from '../../../../shared/types';
 import { InstallHint, SaveLinkCard } from '../../components/LinkHints';
 import { RevealChainList } from '../../components/RevealChainList';
-import { Initials, useToast } from '../../components/ui';
+import { Button, ConfirmSheet, Initials, useToast } from '../../components/ui';
 import { api, errorMessage } from '../../lib/api';
 import { daysBetween, formatDate, formatEuro, sleepsText } from '../../lib/format';
 import { usePrefersReducedMotion } from '../../lib/hooks';
@@ -62,7 +62,7 @@ export function WichtelTab({ data, token, update }: TabProps) {
         </div>
       )}
 
-      {data.reveal ? <RevealCard data={data} /> : null}
+      {data.reveal ? <RevealCard data={data} /> : group.drawn ? <RevealConsent data={data} token={token} update={update} /> : null}
       <InstallHint />
     </div>
   );
@@ -347,6 +347,46 @@ function RevealCard({ data }: { data: MeView }) {
       <div className="mt-2">
         <RevealChainList pairs={pairs} itemClassName="rounded-2xl bg-white/70 px-3 py-2 ring-1 ring-cream-300" />
       </div>
+    </section>
+  );
+}
+
+function RevealConsent({ data, token, update }: Pick<TabProps, 'data' | 'token' | 'update'>) {
+  const toast = useToast();
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const consent = data.me.revealConsent;
+
+  const save = async (next: boolean) => {
+    setBusy(true);
+    try {
+      await api.me.revealConsent(token, next);
+      update((d) => ({ ...d, me: { ...d.me, revealConsent: next } }));
+      setConfirm(false);
+      toast(next ? 'Deine Zustimmung ist gespeichert.' : 'Zustimmung zurückgenommen.');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card">
+      <h2 className="text-xl font-bold">Nach der Bescherung</h2>
+      <p className="mt-2 text-sm text-ink-700">
+        Die gemeinsame Auflösung bleibt geheim, bis alle auf ihrer eigenen Seite zugestimmt haben.
+        Erst dann darf {data.group.organizerName} sie veröffentlichen.
+      </p>
+      <Button className="mt-4 w-full" variant="outline" loading={busy}
+        onClick={() => consent ? void save(false) : setConfirm(true)}>
+        {consent ? 'Zustimmung zurücknehmen' : 'Der gemeinsamen Auflösung zustimmen'}
+      </Button>
+      <ConfirmSheet open={confirm} onClose={() => !busy && setConfirm(false)} onConfirm={() => save(true)}
+        loading={busy} title="Darf das Geheimnis gelüftet werden?" confirmLabel="Ja, ich stimme zu">
+        <p>Nach Zustimmung aller darf die gesamte Runde sehen, wer wen beschenkt hat.
+          Bis zur Veröffentlichung kannst du deine Zustimmung zurücknehmen, danach nicht mehr.</p>
+      </ConfirmSheet>
     </section>
   );
 }

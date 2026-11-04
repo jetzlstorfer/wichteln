@@ -1,17 +1,19 @@
 # 🎄 Wichteln mit dem Christkind
 
-Eine warme, familienfreundliche Wichtel-App (Secret Santa auf Österreichisch) – gemacht fürs Handy, ohne Passwörter, ohne Werbung, ohne Tracking. Das Christkind lost aus, niemand – auch nicht die Organisatorin – sieht vorab, wer wen beschenkt.
+Eine warme, familienfreundliche Wichtel-App (Secret Santa auf Österreichisch) – gemacht fürs Handy, ohne Passwörter, ohne Werbung, ohne Tracking. Das Christkind lost aus. Jede bestätigte Person sieht nur die eigene Zuteilung; der Organisator-Link gewährt keinen Zugriff auf fremde persönliche Seiten.
 
 ## Was die App kann
 
 **Für die Organisatorin / den Organisator**
 - Runde anlegen: Name, Budget, Datum der Bescherung, persönliche Nachricht
-- Familie eintragen – oder einfach **einen Einladungslink** in die WhatsApp-/Signal-Gruppe schicken; alle tippen auf ihren Namen und bekommen ihren **persönlichen Link** (kein Login)
+- Familie eintragen – oder **einen Einladungslink** in die WhatsApp-/Signal-Gruppe schicken; jede Person wählt ihren Namen und zeigt einen **Bestätigungscode persönlich am eigenen Handy** vor
+- Nach dem Code-Vergleich vor Ort bestätigt die organisierende Person die Anfrage. Nur der anfragende Browser erhält den **persönlichen Link** – kein Passwort und keine E-Mail nötig
 - **Paare** festlegen (die beschenken sich nie gegenseitig), **eigene Regeln** („Opa soll nicht Oma …“) und **„Wie im Vorjahr? Lieber nicht!“**
 - Faire Auslosung: jede gültige Zuteilung ist gleich wahrscheinlich; ist eine Auslosung unmöglich, sagt die App warum
 - Sehen, wer sich gemeldet und wer schon nachgeschaut hat – ohne die Paarungen zu sehen
-- Links neu erstellen, Namen freigeben, Auslosung zurücksetzen, **Auflösung** nach der Bescherung zeigen
-- **„Nächstes Jahr wieder wichteln“**: Personen, Paare und Regeln werden übernommen, die Vorjahres-Paarungen automatisch ausgeschlossen
+- Erst auslosen, wenn **alle persönlich bestätigt** sind. Bestätigte Links können weder angezeigt noch neu ausgestellt werden
+- Auslosung zurücksetzen; **Auflösung** nach der Bescherung erst nach Zustimmung aller auf ihren eigenen Seiten veröffentlichen
+- **„Nächstes Jahr wieder wichteln“**: Nach der gemeinsam freigegebenen Auflösung werden Personen, Paare und Regeln übernommen und Vorjahres-Paarungen ausgeschlossen. Die neue Runde braucht neue persönliche Bestätigungen
 
 **Für alle in der Familie**
 - Feierliches Aufdecken des eigenen Wichtelkinds (mit Sternenregen ✨)
@@ -96,6 +98,16 @@ Die App sollte übers Internet **nur per HTTPS** erreichbar sein (z. B. Caddy, T
 ## Sicherheit in Kürze
 
 - Zufällige, lange Geheimlinks statt Passwörtern (Organisator 192 Bit, persönliche Links 144 Bit)
+- Namensauswahl allein gibt keinen Zugriff. Ein 40-Bit-Code ist 30 Minuten gültig, wird vor Ort geprüft und schaltet nur den anfragenden Browser frei. Konkurrierende Anfragen reservieren keinen Namen; nur die persönlich geprüfte Anfrage wird bestätigt, die übrigen werden ungültig
+- Die Bestätigungs-API liefert niemals einen persönlichen Link an die organisierende Person. Es gibt keine administrativen Link- oder Freigabe-Endpunkte mehr – auch nicht nach der Auslosung
+- Persönliche Links selbst sichern. Ohne vorhandene Kopie gibt es bewusst keinen Administrator-Reset. Bei kompromittierten Links die Runde löschen und neu beginnen
+- Veröffentlichung braucht die Zustimmung **aller** persönlichen Zugänge; ein Zurücksetzen der Auslosung löscht auch diese Zustimmungen. Die Übernahme ins nächste Jahr ist vorher gesperrt, weil Vorjahres-Ausschlüsse sonst die geheime Auslosung verraten würden
 - Strenge Content-Security-Policy, `no-referrer`, kein Einbetten in fremde Seiten
 - Rate-Limits für Erstellen, Einlösen von Einladungen und Nachrichten
 - Eingaben werden serverseitig mit zod geprüft und begrenzt
+
+**Vertrauensgrenze:** Die organisierende Person muss beim Code-Vergleich tatsächlich die richtige Person und deren eigenes Handy prüfen, keine Screenshots oder weitergeleiteten Codes. Die App ersetzt diese Identitätsprüfung nicht. Sie schützt persönliche Zugänge vor Zugriff über den Organisator-Link, nicht vor absichtlich falschen Identitätsbestätigungen oder dem Betreiber des Servers. Die Datenbank enthält die Zuteilungen; dies ist keine Ende-zu-Ende-Verschlüsselung. Persönliche URLs auch aus Proxy-/Zugriffslogs fernhalten.
+
+### Bestehende Daten aus der ersten Version
+
+Beim ersten Start dieser Version sperrt eine Datenbankmigration die bisherigen, nicht persönlich verifizierten Teilnehmer-Links (außer dem eigenen Link der rundenerstellenden Person). Namen, Wunschzettel und übrige Rundendaten bleiben erhalten. Die Familie muss sich erneut vor Ort bestätigen. Bei bereits ausgelosten Runden muss die organisierende Person zuerst bewusst **„Neu auslosen“** wählen; dadurch werden die alte Auslosung und ihre Nachrichten gelöscht. Bereits offengelegte Geheimnisse lassen sich nicht rückwirkend schützen. Vor einem Update ein Datenbankbackup erstellen.

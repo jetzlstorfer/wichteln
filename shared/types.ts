@@ -32,7 +32,6 @@ export interface AdminParticipant {
   id: string;
   name: string;
   claimed: boolean;
-  tokenSource: 'self' | 'organizer' | null;
   lastSeenAt: string | null;
   revealSeen: boolean;
   partnerId: string | null;
@@ -60,6 +59,7 @@ export interface AdminView {
   };
   participants: AdminParticipant[];
   exclusions: AdminExclusion[];
+  revealConsentCount: number;
   /** Only present after the organizer published the Auflösung. */
   reveal?: RevealPair[];
   today: string;
@@ -80,6 +80,7 @@ export interface MeView {
     wishes: Wish[];
     isOrganizer: boolean;
     revealSeen: boolean;
+    revealConsent: boolean;
   };
   group: GroupInfo;
   participants: { id: string; name: string; giftStatus: GiftStatus; isMe: boolean }[];
@@ -109,9 +110,18 @@ export interface CreateGroupResponse {
   participantToken: string | null;
 }
 
-export interface TokenResponse {
-  token: string;
+export interface ClaimResponse {
+  claimToken: string;
 }
+
+export type ClaimView = {
+  name: string;
+  groupName: string;
+  inviteCode: string;
+} & (
+  | { status: 'pending'; verificationCode: string; expiresAt: string }
+  | { status: 'verified' }
+);
 
 export interface ApiErrorBody {
   error: string;
