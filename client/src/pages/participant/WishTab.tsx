@@ -75,7 +75,7 @@ export function WishTab({ data, token, update }: TabProps) {
         </div>
 
         {me.wishes.length ? (
-          <ul className="paper-lines mt-3 rounded-2xl border border-cream-300 bg-white/70 px-4 py-1">
+          <ul className="mt-3 space-y-2">
             {me.wishes.map((w) => (
               <WishLine
                 key={w.id}

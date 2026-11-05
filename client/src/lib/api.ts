@@ -3,7 +3,6 @@ import type {
   ChatMessage,
   ClaimResponse,
   CreateGroupResponse,
-  GiftStatus,
   InviteView,
   MeView,
   MessagesView,
@@ -73,7 +72,6 @@ export const api = {
     removeExclusion: (t: string, id: string) => request<{ ok: true }>('DELETE', `/admin/${e(t)}/exclusions/${e(id)}`),
     draw: (t: string) => request<{ ok: true; mutualPairs: number }>('POST', `/admin/${e(t)}/draw`),
     resetDraw: (t: string) => request<{ ok: true }>('POST', `/admin/${e(t)}/draw/reset`),
-    reveal: (t: string, revealed: boolean) => request<{ ok: true }>('POST', `/admin/${e(t)}/reveal`, { revealed }),
     nextRound: (t: string, body: { name: string; exchangeDate?: string | null; budget?: number | null }) =>
       request<CreateGroupResponse>('POST', `/admin/${e(t)}/next-round`, body),
   },
@@ -86,11 +84,10 @@ export const api = {
 
   me: {
     get: (t: string) => request<MeView>('GET', `/me/${e(t)}`),
-    update: (t: string, body: { about?: string; giftStatus?: GiftStatus }) => request<{ ok: true }>('PATCH', `/me/${e(t)}`, body),
+    update: (t: string, body: { about?: string }) => request<{ ok: true }>('PATCH', `/me/${e(t)}`, body),
     addWish: (t: string, body: { text: string; url?: string | null }) => request<Wish>('POST', `/me/${e(t)}/wishes`, body),
     removeWish: (t: string, id: string) => request<{ ok: true }>('DELETE', `/me/${e(t)}/wishes/${e(id)}`),
     revealSeen: (t: string) => request<{ ok: true }>('POST', `/me/${e(t)}/reveal-seen`),
-    revealConsent: (t: string, consent: boolean) => request<{ ok: true }>('POST', `/me/${e(t)}/reveal-consent`, { consent }),
     openDoor: (t: string, day: number) => request<{ openedDoors: number[] }>('POST', `/me/${e(t)}/doors`, { day }),
     messages: (t: string) => request<MessagesView>('GET', `/me/${e(t)}/messages`),
     send: (t: string, to: 'recipient' | 'christkind', body: string) =>

@@ -102,7 +102,7 @@ export function CreateRound() {
           checked={participates}
           onChange={setParticipates}
           label="Ich mache selbst mit"
-          description="Auch als Organisator:in siehst du nur deine eigene Zuteilung. Die gemeinsame Auflösung braucht die Zustimmung aller."
+          description="Auch als Organisator:in siehst du nur deine eigene Zuteilung."
         />
 
         <hr className="border-cream-300" />

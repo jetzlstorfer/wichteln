@@ -12,20 +12,29 @@ Eine warme, familienfreundliche Wichtel-App (Secret Santa auf Österreichisch) �
 - Faire Auslosung: jede gültige Zuteilung ist gleich wahrscheinlich; ist eine Auslosung unmöglich, sagt die App warum
 - Sehen, wer sich gemeldet und wer schon nachgeschaut hat – ohne die Paarungen zu sehen
 - Erst auslosen, wenn **alle ihren Namen ausgewählt** haben. Vergebene Namen bleiben gesperrt; persönliche Links können von der organisierenden Person weder angezeigt noch neu ausgestellt werden
-- Auslosung zurücksetzen; **Auflösung** nach der Bescherung erst nach Zustimmung aller auf ihren eigenen Seiten veröffentlichen
-- **„Nächstes Jahr wieder wichteln“**: Nach der gemeinsam freigegebenen Auflösung werden Personen, Paare und Regeln übernommen und Vorjahres-Paarungen ausgeschlossen. Alle wählen ihren Namen erneut in der neuen Einladung
+- Auslosung bei Bedarf zurücksetzen
 
 **Für alle in der Familie**
 - Feierliches Aufdecken des eigenen Wichtelkinds (mit Sternenregen ✨)
 - **Wunschzettel** (optional) mit Links zu Shops, dazu ein paar Zeilen „Über mich“ (Größen, Vorlieben, No-Gos)
 - **Anonyme Nachrichten**: dem Wichtelkind Fragen stellen, ohne sich zu verraten – und dem eigenen Christkind antworten
-- **Packerl-Fortschritt** (Idee → Besorgt → Eingepackt) und ein **Adventkalender** mit 24 Türchen
+- **Adventkalender** mit 24 Türchen
 - Als App am Startbildschirm installierbar (PWA, Android & iPhone)
 
 **Datenschutz**
 - Keine Cookies, kein Tracking, keine Drittanbieter (auch Schriften werden selbst ausgeliefert)
 - Wunschzettel, Nachrichten und „Über mich“ werden 60 Tage nach der Bescherung gelöscht, die ganze Runde nach gut einem Jahr
 - Persönliche Seiten werden nicht indexiert; Link-Vorschauen verraten nur bei Einladungen den Rundennamen
+
+## Zurückgestellte Ideen
+
+Diese Funktionen sind bewusst aus der aktuellen Oberfläche entfernt:
+
+- **Packerl-Fortschritt**: freiwillig „Idee → Besorgt → Eingepackt“ abhaken, mit einer gemeinsamen Übersicht, wie viele Packerln fertig sind.
+- **„Nach der Bescherung“**: eine gemeinsame Auflösung, wer wen beschenkt hat. Falls die Funktion zurückkommt, muss weiterhin jede Person auf ihrer eigenen Seite zustimmen, bevor die Organisator:in die Paarungen veröffentlicht. Bis dahin bleibt die Auslosung geheim; eine Veröffentlichung lässt sich nicht zurücknehmen.
+- **„Nächstes Jahr wieder wichteln“**: Personen, Paare und Regeln übernehmen und die Vorjahres-Paarungen ausschließen. Diese Übernahme darf erst nach einer gemeinsam freigegebenen Auflösung möglich sein, damit sichtbare Ausschlussregeln keine noch geheimen Zuteilungen verraten.
+
+Vorhandene Daten und die abgesicherten API-Endpunkte bleiben kompatibel. Bereits veröffentlichte Auflösungen aus Altrunden bleiben lesbar; nur für solche Runden bleibt auch die Übernahme ins nächste Jahr verfügbar.
 
 ## Schnellstart
 
@@ -101,7 +110,7 @@ Die App sollte übers Internet **nur per HTTPS** erreichbar sein (z. B. Caddy, T
 - Die erste Namensauswahl vergibt den Zugang atomar: Auch bei gleichzeitigen Anfragen bekommt nur eine Person einen Link. Persönliche Tokens bestehen aus 18 kryptografisch zufälligen Bytes (144 Bit), nicht aus Namen oder fortlaufenden IDs
 - Persönliche Links werden nur beim Erstellen bzw. Auswählen ausgegeben, nicht in der Einladung oder der Organisator-Ansicht. Es gibt keine administrativen Link- oder Freigabe-Endpunkte – auch nicht nach der Auslosung
 - Persönliche Links selbst sichern. Ohne vorhandene Kopie gibt es bewusst keinen Administrator-Reset. Bei kompromittierten Links die Runde löschen und neu beginnen
-- Veröffentlichung braucht die Zustimmung **aller** persönlichen Zugänge; ein Zurücksetzen der Auslosung löscht auch diese Zustimmungen. Die Übernahme ins nächste Jahr ist vorher gesperrt, weil Vorjahres-Ausschlüsse sonst die geheime Auslosung verraten würden
+- Die erhaltenen Auflösungs-Endpunkte brauchen weiterhin die Zustimmung **aller** persönlichen Zugänge; ein Zurücksetzen der Auslosung löscht auch diese Zustimmungen. Die Übernahme ins nächste Jahr ist vorher gesperrt, weil Vorjahres-Ausschlüsse sonst die geheime Auslosung verraten würden
 - Strenge Content-Security-Policy, `no-referrer`, kein Einbetten in fremde Seiten
 - Rate-Limits für Erstellen, Einlösen von Einladungen und Nachrichten
 - Eingaben werden serverseitig mit zod geprüft und begrenzt

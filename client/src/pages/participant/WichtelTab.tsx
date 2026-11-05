@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { CalendarHeart, ExternalLink, Eye, EyeOff, MessageCircleQuestion, PartyPopper, ScrollText, Sparkles, Wallet } from 'lucide-react';
-import type { GiftStatus, MeView, Wish } from '../../../../shared/types';
+import type { MeView, Wish } from '../../../../shared/types';
 import { InstallHint, SaveLinkCard } from '../../components/LinkHints';
 import { RevealChainList } from '../../components/RevealChainList';
-import { Button, ConfirmSheet, Initials, useToast } from '../../components/ui';
-import { api, errorMessage } from '../../lib/api';
+import { Initials } from '../../components/ui';
+import { api } from '../../lib/api';
 import { daysBetween, formatDate, formatEuro, sleepsText } from '../../lib/format';
 import { usePrefersReducedMotion } from '../../lib/hooks';
 import { firstName } from '../../lib/reveal';
 import { absoluteUrl } from '../../lib/share';
-import { Progress } from '../organizer/DrawSection';
 import type { TabProps } from './Participant';
 
 export function WichtelTab({ data, token, update }: TabProps) {
@@ -62,7 +61,7 @@ export function WichtelTab({ data, token, update }: TabProps) {
         </div>
       )}
 
-      {data.reveal ? <RevealCard data={data} /> : group.drawn ? <RevealConsent data={data} token={token} update={update} /> : null}
+      {data.reveal ? <RevealCard data={data} /> : null}
       <InstallHint />
     </div>
   );
@@ -168,12 +167,7 @@ function AfterDraw({ data, token, update }: { data: MeView; token: string; updat
     );
   }
 
-  return (
-    <>
-      <RecipientCard data={data} token={token} />
-      <GiftProgress data={data} token={token} update={update} />
-    </>
-  );
+  return <RecipientCard data={data} token={token} />;
 }
 
 function RecipientCard({ data, token }: { data: MeView; token: string }) {
@@ -214,7 +208,7 @@ function RecipientCard({ data, token }: { data: MeView; token: string }) {
           <ScrollText className="size-5 text-gold-600" /> {name}s Wunschzettel
         </h3>
         {recipient.wishes.length ? (
-          <ul className="paper-lines mt-2 rounded-2xl border border-cream-300 bg-white/70 px-4 py-1">
+          <ul className="mt-3 space-y-2">
             {recipient.wishes.map((w) => (
               <WishLine key={w.id} wish={w} />
             ))}
@@ -242,90 +236,26 @@ export function WishLine({ wish, action }: { wish: Wish; action?: ReactNode }) {
     }
   }
   return (
-    <li className="flex min-h-[2rem] items-start gap-2 py-1.5">
-      <span className="mt-0.5 text-gold-600" aria-hidden>
-        ✦
+    <li className="flex min-h-13 items-center gap-3 rounded-2xl border border-cream-300/80 bg-gradient-to-br from-white/95 to-cream-50 px-3 py-2 shadow-[0_2px_8px_rgb(12_23_48/0.05)]">
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gold-100 text-gold-700 ring-1 ring-gold-300/60" aria-hidden>
+        <Sparkles className="size-4" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="font-hand text-[1.45rem] leading-snug break-words text-ink-900">{wish.text}</p>
+        <p className="font-hand text-[1.4rem] leading-tight break-words text-ink-900">{wish.text}</p>
         {wish.url ? (
           <a
             href={wish.url}
             target="_blank"
             rel="noopener noreferrer nofollow"
-            className="inline-flex max-w-full items-center gap-1 text-sm font-bold text-fir-500 underline decoration-fir-400/40 underline-offset-2"
+            className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full bg-fir-500/10 px-2 py-1 text-xs font-bold text-fir-700 no-underline transition-colors hover:bg-fir-500/15"
           >
-            <ExternalLink className="size-3.5 shrink-0" />
+            <ExternalLink className="size-3 shrink-0" />
             <span className="truncate">{host || 'Link'}</span>
           </a>
         ) : null}
       </div>
       {action}
     </li>
-  );
-}
-
-const STEPS: { status: GiftStatus; emoji: string; label: string }[] = [
-  { status: 1, emoji: '💡', label: 'Idee' },
-  { status: 2, emoji: '🛍️', label: 'Besorgt' },
-  { status: 3, emoji: '🎁', label: 'Eingepackt' },
-];
-
-function GiftProgress({ data, token, update }: { data: MeView; token: string; update: TabProps['update'] }) {
-  const toast = useToast();
-  const status = data.me.giftStatus;
-  const wrapped = data.participants.filter((p) => p.giftStatus === 3).length;
-
-  const setStatus = async (next: GiftStatus) => {
-    const previous = status;
-    update((d) => ({
-      ...d,
-      me: { ...d.me, giftStatus: next },
-      participants: d.participants.map((p) => (p.isMe ? { ...p, giftStatus: next } : p)),
-    }));
-    try {
-      await api.me.update(token, { giftStatus: next });
-      if (next === 3) toast('Wunderbar – das Christkind ist stolz auf dich! 🎁');
-    } catch (err) {
-      update((d) => ({
-        ...d,
-        me: { ...d.me, giftStatus: previous },
-        participants: d.participants.map((p) => (p.isMe ? { ...p, giftStatus: previous } : p)),
-      }));
-      toast(errorMessage(err), 'error');
-    }
-  };
-
-  return (
-    <section className="card">
-      <h2 className="text-xl font-bold">Wie weit ist dein Packerl?</h2>
-      <p className="mt-1 text-sm text-ink-500">Nur für dich zum Abhaken – die anderen sehen bloß, wie viele schon fertig sind.</p>
-      <ol className="mt-4 grid grid-cols-3 gap-2">
-        {STEPS.map((s) => {
-          const done = status >= s.status;
-          return (
-            <li key={s.status}>
-              <button
-                type="button"
-                aria-pressed={done}
-                onClick={() => setStatus(status === s.status ? ((s.status - 1) as GiftStatus) : s.status)}
-                className={`flex w-full flex-col items-center gap-1 rounded-2xl border-2 px-2 py-3 font-bold transition ${
-                  done ? 'border-fir-400 bg-fir-500 text-cream-50 shadow-md' : 'border-cream-300 bg-white/70 text-ink-700 hover:border-gold-400'
-                }`}
-              >
-                <span className={`text-2xl ${done ? 'animate-pop' : 'grayscale-[0.6]'}`} aria-hidden>
-                  {s.emoji}
-                </span>
-                <span className="text-sm">{s.label}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-      <div className="mt-5">
-        <Progress label="Packerln eingepackt" value={wrapped} total={data.participants.length} />
-      </div>
-    </section>
   );
 }
 
@@ -347,46 +277,6 @@ function RevealCard({ data }: { data: MeView }) {
       <div className="mt-2">
         <RevealChainList pairs={pairs} itemClassName="rounded-2xl bg-white/70 px-3 py-2 ring-1 ring-cream-300" />
       </div>
-    </section>
-  );
-}
-
-function RevealConsent({ data, token, update }: Pick<TabProps, 'data' | 'token' | 'update'>) {
-  const toast = useToast();
-  const [confirm, setConfirm] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const consent = data.me.revealConsent;
-
-  const save = async (next: boolean) => {
-    setBusy(true);
-    try {
-      await api.me.revealConsent(token, next);
-      update((d) => ({ ...d, me: { ...d.me, revealConsent: next } }));
-      setConfirm(false);
-      toast(next ? 'Deine Zustimmung ist gespeichert.' : 'Zustimmung zurückgenommen.');
-    } catch (err) {
-      toast(errorMessage(err), 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <section className="card">
-      <h2 className="text-xl font-bold">Nach der Bescherung</h2>
-      <p className="mt-2 text-sm text-ink-700">
-        Die gemeinsame Auflösung bleibt geheim, bis alle auf ihrer eigenen Seite zugestimmt haben.
-        Erst dann darf {data.group.organizerName} sie veröffentlichen.
-      </p>
-      <Button className="mt-4 w-full" variant="outline" loading={busy}
-        onClick={() => consent ? void save(false) : setConfirm(true)}>
-        {consent ? 'Zustimmung zurücknehmen' : 'Der gemeinsamen Auflösung zustimmen'}
-      </Button>
-      <ConfirmSheet open={confirm} onClose={() => !busy && setConfirm(false)} onConfirm={() => save(true)}
-        loading={busy} title="Darf das Geheimnis gelüftet werden?" confirmLabel="Ja, ich stimme zu">
-        <p>Nach Zustimmung aller darf die gesamte Runde sehen, wer wen beschenkt hat.
-          Bis zur Veröffentlichung kannst du deine Zustimmung zurücknehmen, danach nicht mehr.</p>
-      </ConfirmSheet>
     </section>
   );
 }

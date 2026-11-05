@@ -124,12 +124,11 @@ function StatusSteps({ view }: { view: AdminView }) {
     { label: 'Familie eintragen', done: people.length >= 3, href: '#familie' },
     { label: 'Alle melden sich', done: people.length >= 3 && people.every((p) => p.claimed), href: '#einladen' },
     { label: 'Auslosen', done: view.group.drawn, href: '#auslosen' },
-    { label: 'Bescherung', done: view.group.revealed, href: '#auslosen' },
   ];
   const current = steps.findIndex((s) => !s.done);
   return (
     <nav aria-label="Fortschritt" className="card-dark !p-3">
-      <ol className="grid grid-cols-4 gap-1 text-center">
+      <ol className="grid grid-cols-3 gap-1 text-center">
         {steps.map((s, i) => {
           const active = i === current;
           return (

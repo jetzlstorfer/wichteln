@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, PartyPopper, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react';
+import { PartyPopper, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react';
 import type { AdminView } from '../../../../shared/types';
 import { RevealChainList } from '../../components/RevealChainList';
 import { Button, ConfirmSheet, useToast } from '../../components/ui';
@@ -7,12 +7,10 @@ import { api, errorMessage } from '../../lib/api';
 import { formatTimestampDay } from '../../lib/format';
 import { Section, useAction } from './shared';
 
-const GIFT_STEPS = ['noch nichts', 'Idee', 'besorgt', 'eingepackt'] as const;
-
 export function DrawSection({ view, token, reload }: { view: AdminView; token: string; reload: () => Promise<unknown> }) {
   const toast = useToast();
   const { busy, run } = useAction(reload);
-  const [confirm, setConfirm] = useState<'draw' | 'reset' | 'reveal' | null>(null);
+  const [confirm, setConfirm] = useState<'draw' | 'reset' | null>(null);
   const [drawError, setDrawError] = useState<string | null>(null);
   const [drawing, setDrawing] = useState(false);
   const { group, participants } = view;
@@ -81,14 +79,11 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
             Das Christkind lost jetzt für {total} Personen aus. Danach lassen sich Personen und Regeln nicht mehr ändern – außer
             du setzt die Auslosung zurück.
           </p>
-          <p className="mt-2 font-bold">Jede Person sieht nur die eigene Zuteilung – auch du. Eine gemeinsame Auflösung braucht später die Zustimmung aller.</p>
+          <p className="mt-2 font-bold">Jede Person sieht nur die eigene Zuteilung – auch du.</p>
         </ConfirmSheet>
       </Section>
     );
   }
-
-  const giftCounts = [0, 0, 0, 0];
-  for (const p of participants) giftCounts[p.giftStatus] = (giftCounts[p.giftStatus] ?? 0) + 1;
 
   return (
     <Section
@@ -98,61 +93,22 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
       intro={group.drawnAt ? `Das Christkind hat am ${formatTimestampDay(group.drawnAt)} ausgelost.` : undefined}
     >
       <Progress label="haben schon nachgeschaut" labelOne="hat schon nachgeschaut" value={seen} total={total} />
-      <div className="mt-4">
-        <p className="text-sm font-bold text-ink-700">So weit sind die Packerl</p>
-        <div className="mt-2 grid grid-cols-4 gap-1.5 text-center">
-          {GIFT_STEPS.map((label, i) => (
-            <div key={label} className={`rounded-xl p-2 ${i === 3 ? 'bg-fir-500/15' : 'bg-cream-200/70'}`}>
-              <p className="font-display text-2xl font-bold">{giftCounts[i]}</p>
-              <p className="text-[0.7rem] leading-tight font-bold text-ink-500">{label}</p>
-            </div>
-          ))}
+      {group.revealed ? (
+        <div className="mt-6 rounded-2xl bg-gold-100 p-4">
+          <h3 className="font-bold">Auflösung</h3>
+          <p className="mt-1 text-sm text-ink-700">Alle sehen jetzt, wer wessen Christkind war:</p>
+          <div className="mt-3">
+            <RevealChainList pairs={view.reveal ?? []} />
+          </div>
+          <p className="mt-3 text-sm text-ink-500">Alle haben zugestimmt. Diese Veröffentlichung lässt sich nicht rückgängig machen.</p>
         </div>
-      </div>
-
-      <div className="mt-6 rounded-2xl bg-gold-100 p-4">
-        <h3 className="font-bold">Auflösung</h3>
-        {group.revealed ? (
-          <>
-            <p className="mt-1 text-sm text-ink-700">Alle sehen jetzt, wer wessen Christkind war:</p>
-            <div className="mt-3">
-              <RevealChainList pairs={view.reveal ?? []} />
-            </div>
-            <p className="mt-3 text-sm text-ink-500">Alle haben zugestimmt. Diese Veröffentlichung lässt sich nicht rückgängig machen.</p>
-          </>
-        ) : (
-          <>
-            <p className="mt-1 text-sm text-ink-700">
-              Nach der Bescherung stimmt jede Person auf ihrer eigenen Wichtel-Seite zu.
-              Erst wenn alle einverstanden sind, kannst du die Auflösung veröffentlichen.
-            </p>
-            <p className="mt-2 text-sm font-bold">{view.revealConsentCount} von {total} haben zugestimmt.</p>
-            <Button variant="fir" size="sm" className="mt-3" disabled={view.revealConsentCount !== total} onClick={() => setConfirm('reveal')}>
-              <Eye className="size-4" /> Auflösung zeigen
-            </Button>
-          </>
-        )}
-      </div>
+      ) : null}
 
       <div className="mt-5 flex justify-end">
         <Button variant="outline" size="sm" onClick={() => setConfirm('reset')}>
           <RotateCcw className="size-4" /> Neu auslosen
         </Button>
       </div>
-
-      <ConfirmSheet
-        open={confirm === 'reveal'}
-        onClose={() => setConfirm(null)}
-        onConfirm={async () => {
-          if (await run('reveal', () => api.admin.reveal(token, true), 'Auflösung ist jetzt für alle sichtbar 🎉')) setConfirm(null);
-        }}
-        loading={busy === 'reveal'}
-        title="Auflösung für alle zeigen?"
-        confirmLabel="Ja, Auflösung zeigen"
-        variant="fir"
-      >
-        <p>Alle haben zugestimmt. Danach sehen alle dauerhaft, wer wen gezogen hat. Das lässt sich nicht rückgängig machen.</p>
-      </ConfirmSheet>
 
       <ConfirmSheet
         open={confirm === 'reset'}
