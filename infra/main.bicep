@@ -158,9 +158,7 @@ resource environment 'Microsoft.App/managedEnvironments@2025-01-01' = {
         customerId: workspace!.properties.customerId
         sharedKey: workspace!.listKeys().primarySharedKey
       }
-    } : {
-      destination: 'none'
-    }
+    } : {}
     workloadProfiles: [
       {
         name: 'Consumption'

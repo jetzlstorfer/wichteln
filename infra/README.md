@@ -1,4 +1,8 @@
-# Azure infrastructure (not deployed)
+# Azure infrastructure
+
+Quick path: `pwsh .\infra\deploy.ps1` runs both phases below (resource group
+`rg-wichteln`, `westeurope`, image build/push, digest-pinned release, health
+check). Use `-SkipBootstrap` for code-only releases.
 
 These resource-group-scoped Bicep files deploy Wichteln to **Azure Container Apps
 Consumption** with **Azure Table Storage**. Adding or compiling them creates
