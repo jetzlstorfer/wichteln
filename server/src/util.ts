@@ -47,27 +47,3 @@ export class HttpError extends Error {
     super(message);
   }
 }
-
-/** Minimal fixed-window rate limiter (in memory, per key). */
-export class RateLimiter {
-  private hits = new Map<string, { count: number; resetAt: number }>();
-  constructor(
-    private max: number,
-    private windowMs: number,
-  ) {}
-
-  check(key: string, now = Date.now()): boolean {
-    const entry = this.hits.get(key);
-    if (!entry || entry.resetAt <= now) {
-      this.hits.set(key, { count: 1, resetAt: now + this.windowMs });
-      if (this.hits.size > 10000) this.prune(now);
-      return true;
-    }
-    entry.count++;
-    return entry.count <= this.max;
-  }
-
-  private prune(now: number) {
-    for (const [k, v] of this.hits) if (v.resetAt <= now) this.hits.delete(k);
-  }
-}

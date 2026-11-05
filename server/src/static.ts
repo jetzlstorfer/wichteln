@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Context, Hono } from 'hono';
 import { serveStatic } from '@hono/node-server/serve-static';
-import type { DB } from './db';
+import type { Storage } from './storage';
 import { TOKEN_PATTERN } from './util';
 
 export interface StaticOptions {
@@ -21,7 +21,7 @@ function setMeta(html: string, attr: 'property' | 'name', key: string, value: st
 }
 
 /** Serves the built client with sensible caching and personalised link previews for invites. */
-export function attachStatic(app: Hono, db: DB, options: StaticOptions) {
+export function attachStatic(app: Hono, storage: Storage, options: StaticOptions) {
   const indexFile = path.join(options.clientDir, 'index.html');
   let template: string | null = null;
   const loadTemplate = () => (template ??= fs.readFileSync(indexFile, 'utf8'));
@@ -38,7 +38,7 @@ export function attachStatic(app: Hono, db: DB, options: StaticOptions) {
     return url.origin;
   };
 
-  const renderIndex = (c: Context) => {
+  const renderIndex = async (c: Context) => {
     let html = loadTemplate();
     const origin = originOf(c);
     html = setMeta(html, 'property', 'og:image', `${origin}/img/og-image.jpg`);
@@ -46,9 +46,9 @@ export function attachStatic(app: Hono, db: DB, options: StaticOptions) {
 
     const invite = c.req.path.match(/^\/einladung\/([^/]+)\/?$/);
     if (invite && TOKEN_PATTERN.test(invite[1])) {
-      const group = db.prepare('SELECT name, organizer_name FROM groups WHERE invite_code = ?').get(invite[1]) as
-        | { name: string; organizer_name: string }
-        | undefined;
+      const id = await storage.resolve('invite', invite[1]);
+      const round = id ? await storage.read(id) : undefined;
+      const group = round?.group.invite_code === invite[1] ? round.group : undefined;
       if (group) {
         const title = `Einladung zum Wichteln: ${group.name}`;
         const description = `${group.organizer_name} lädt dich ein – wähle deinen eigenen Namen und erhalte deinen persönlichen Wichtel-Link. ✨`;

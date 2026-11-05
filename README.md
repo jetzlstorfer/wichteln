@@ -38,10 +38,16 @@ Vorhandene Daten und die abgesicherten API-Endpunkte bleiben kompatibel. Bereits
 
 ## Schnellstart
 
-Voraussetzung: **Node.js ≥ 22.13** (wegen des eingebauten `node:sqlite`).
+Voraussetzung: **Node.js ≥ 22.13**. Die App verwendet Azure Table Storage; lokal ersetzt **Azurite** den Azure-Dienst. SQLite wird nur noch für den Import alter Daten benötigt.
 
 ```bash
 npm ci
+npm run dev:storage # in einem eigenen Terminal laufen lassen
+```
+
+In einem zweiten Terminal:
+
+```bash
 npm run build
 npm start            # → http://localhost:8787
 ```
@@ -53,6 +59,8 @@ Damit die Familie im selben WLAN mitmachen kann, die Adresse des Rechners verwen
 ```bash
 npm run dev          # API (tsx watch, :8787) + Vite (:5173) mit Hot Reload
 npm test             # Vitest: Auslosung + API
+npm run test:tables  # gesamte Suite mit eigenem Azurite, Zufallsport und temporären Testdaten
+npm run verify       # Typen, beide Test-Backends, Build und HTTP-/Aufräum-Test des Bundles
 npm run typecheck    # TypeScript für Client und Server
 npm run assets       # Bilder aus design/source in client/public/img neu erzeugen
 ```
@@ -64,30 +72,52 @@ Tipp: Mit `FAKE_TODAY=2026-12-10 npm run dev:server` lässt sich der Adventkalen
 | Ordner | Inhalt |
 | --- | --- |
 | `client/` | React 19 + React Router + Tailwind CSS 4 (Vite), mobile-first PWA |
-| `server/` | Hono-API, SQLite über `node:sqlite`, Auslosung (`draw.ts`), Aufräumen (`maintenance.ts`) |
+| `server/` | Hono-API, Table Storage (`storage.ts`), Auslosung (`draw.ts`), Aufräumen (`maintenance.ts`) |
 | `shared/` | Gemeinsame Typen & Limits für Client und Server |
 | `design/source/` | Original-Illustrationen (Christkind, Strohstern, Packerl, Adventkranz …) |
 | `scripts/` | Bildverarbeitung (sharp) für responsive WebP-Varianten, Icons und OG-Bild |
+| `infra/` | Bicep für Container Apps Consumption, Table Storage, Registry, Managed Identity und Aufräum-Job |
 
 `npm run build` erzeugt `dist/client` (statische Dateien) und `dist/server/index.js` (ein einziges Bundle ohne `node_modules`).
 
 ## Hosting
 
-### Docker
+### Azure Container Apps Consumption
 
-```bash
-docker build -t wichteln .
-docker run -d --name wichteln -p 8787:8787 -v wichteln-data:/data \
-  -e PUBLIC_URL=https://wichteln.example.at wichteln
+Die vollständige Anleitung und die Bicep-Parameter stehen in [infra/README.md](infra/README.md). Die Bereitstellung ist absichtlich zweistufig: zuerst Infrastruktur und Registry, danach das echte, gebaute Image und die App. **Es gibt kein automatisches Deployment.** Bicep-Kompilierung und lokale Tests erstellen keine Azure-Ressourcen.
+
+Die App liefert Frontend und API gemeinsam aus, kann bei Inaktivität auf null Replikate skalieren und nutzt eine Managed Identity statt gespeicherter Storage-Schlüssel. Der erste Aufruf nach einer Pause kann deshalb langsamer sein. ACR Basic, gespeicherte Daten, Transaktionen und Aufräum-Jobs sind auch bei wenig Nutzung nicht zwangsläufig kostenlos.
+
+Ein geplanter Container-Apps-Job führt alle sechs Stunden `node dist/server/index.js --maintenance` aus. Für lokale Entwicklung bei Bedarf `npm run maintenance` aufrufen. Es gibt keinen Aufräum-Timer im Webserver, der beim Skalieren auf null ausfallen würde. Fehlgeschlagene Job-Ausführungen müssen überwacht werden.
+
+### Speicherung und Nebenläufigkeit
+
+Jede Runde ist eine Table-Partition. Personen, Regeln, Wünsche und Nachrichten werden als einzelne Entities gespeichert; alle Paarungen passen in eine gemeinsame Auslosungs-Entity. Jede Änderung aktualisiert die Runden-Entity mit einem ETag in derselben atomaren Transaktion. Konflikte werden auf einem neu gelesenen Stand erneut geprüft: doppelte Namensauswahl, verlorene Änderungen und eine Auflösung ohne aktuelle Zustimmung aller bleiben ausgeschlossen.
+
+Nachrichten haben eine fortlaufende Sequenz; Lesestände liegen an der Person statt an jeder einzelnen Nachricht. Zurücksetzen und Bereinigung wechseln eine Generation, wodurch auch mehr als 100 Nachrichten bzw. 1.200 Wünsche atomar unsichtbar werden. Der Job entfernt die alten Entities anschließend physisch. Das Entfernen einer Person macht ihre Wünsche und Regeln sofort unzugänglich; die physische Entfernung erfolgt spätestens beim nächsten erfolgreichen Job.
+
+Link-Lookups enthalten nur SHA-256-Schlüssel und eine Runden-ID. Da verschiedene Partitionen nicht gemeinsam transaktional sind, werden neue Lookups vor dem Runden-Commit angelegt. Sie gewähren allein keinen Zugang: jeder Aufruf prüft den Token erneut an der aktuellen Runde. Verwaiste Lookups werden nach einer Sicherheitsfrist von 24 Stunden entfernt. Neue Runden werden erst nach vollständig geschriebenen Entities veröffentlicht; ein abgebrochener Import bleibt unsichtbar und wird nach 24 Stunden bereinigt.
+
+Auch Rate-Limits werden mit ETags in einer eigenen Tabelle gespeichert und gelten über Neustarts und Replikate hinweg. Die Implementierung ist für kleine Familienrunden gedacht: sie liest die aktive Runden-Partition, nicht nur einzelne Nachrichten. Für große Chat-Verläufe wären paginierte Endpunkte sinnvoll.
+
+### Import vorhandener SQLite-Daten
+
+Vor dem Wechsel den alten Server stoppen, ein vollständiges SQLite-Backup erstellen und die Originaldatei aufbewahren. Der Import liest einen konsistenten, schreibgeschützten Snapshot und ändert weder das Schema noch die Daten der Quelldatei. Gültige persönliche Links, Organisator-Links, Einladungen, Regeln und Paarungen bleiben erhalten; die Sicherheitsregeln älterer Schema-Versionen bleiben wirksam.
+
+```powershell
+# Lokal: Azurite muss laufen. Zuerst nur prüfen:
+npm run import:sqlite -- .\data\wichteln.db
+# Erst nach erfolgreicher Prüfung und bewusstem Zielwechsel schreiben:
+npm run import:sqlite -- .\data\wichteln.db --apply
 ```
 
-Hinter einem internen npm-Mirror: `docker build --build-arg NPM_REGISTRY=https://mein-mirror/npm/ -t wichteln .`
+Für Azure vorher `STORAGE_BACKEND=azure` und `TABLE_ENDPOINT` setzen und dem ausführenden Konto Storage Table Data Contributor auf dem Zielkonto geben. Lokal verwendet der SDK-Client die Azure-CLI-Anmeldung; im Container die Managed Identity. Bestehende Runden werden nie überschrieben. Der Import ist pro Runde atomar sichtbar, aber nicht über die ganze Quelldatei: bei Teilfehlern den Zielstand prüfen, statt den Import blind zu wiederholen. Ein unterbrochener Staging-Import derselben Runde wird bis zur Bereinigung abgewiesen.
 
-Die Datenbank liegt im Volume `/data`. Für ein Backup den Container kurz stoppen und `wichteln.db` aus dem Volume kopieren.
+Table Storage LRS ist **kein Backup**. Vor echtem Einsatz private, regelmäßig geplante Table-Exporte und eine geprüfte Wiederherstellung einrichten. Diese Exporte enthalten Geheimlinks und persönliche Inhalte und gehören nicht in Git oder Logs. Die Bicep-Dateien richten noch keinen Backup-Job ein.
 
-### Hinter einem Reverse Proxy
+### HTTPS und Reverse Proxy
 
-Die App sollte übers Internet **nur per HTTPS** erreichbar sein (z. B. Caddy, Traefik, nginx, Azure Container Apps, Fly.io). Dann `TRUST_PROXY=true` setzen, damit Rate-Limits und Link-Vorschauen die echte Adresse verwenden, oder gleich `PUBLIC_URL` angeben.
+Die App sollte im Internet **nur per HTTPS** erreichbar sein. `TRUST_PROXY=true` ist auf das Container-Apps-Ingress-Verhalten ausgelegt: nur die von Azure angehängte **rechte** IP-Adresse wird vertraut. Bei anderen Proxys müssen deren Header-Regeln dazu passen. `PUBLIC_URL` legt die kanonische Adresse für Vorschauen fest; auf Azure wird andernfalls `CONTAINER_APP_HOSTNAME` verwendet. Persönliche URLs nicht in Zugriffslogs oder Request-Telemetrie erfassen.
 
 ### Umgebungsvariablen
 
@@ -95,10 +125,15 @@ Die App sollte übers Internet **nur per HTTPS** erreichbar sein (z. B. Caddy, T
 | --- | --- | --- |
 | `PORT` | `8787` | HTTP-Port |
 | `HOST` | `0.0.0.0` | Adresse, auf der gelauscht wird |
-| `DATA_DIR` | `./data` | Ordner für die Datenbank |
-| `DB_FILE` | `$DATA_DIR/wichteln.db` | Pfad zur SQLite-Datei (überschreibt `DATA_DIR`) |
+| `STORAGE_BACKEND` | `azurite` lokal, `azure` im Docker-Image | Datenquelle; Produktion lehnt Azurite ab |
+| `AZURITE_CONNECTION_STRING` | `UseDevelopmentStorage=true` | Nur lokal: Emulator-Verbindung; keine produktiven Schlüssel verwenden |
+| `TABLE_ENDPOINT` | – | Azure-Table-Endpunkt, bei `azure` zwingend |
+| `TABLE_ROUNDS` | `WichtelnRounds` | Tabelle mit Runden und Inhalt |
+| `TABLE_LINKS` | `WichtelnLinks` | Tabelle mit gehashten Link-Lookups |
+| `TABLE_RATES` | `WichtelnRates` | Tabelle mit verteilten Rate-Limits |
+| `AZURE_CLIENT_ID` | – | Client-ID der User-Assigned Managed Identity, von Bicep gesetzt |
 | `CLIENT_DIR` | `dist/client` | Ordner mit dem gebauten Frontend |
-| `PUBLIC_URL` | – | Öffentliche Adresse für absolute Links in Vorschauen, z. B. `https://wichteln.example.at` |
+| `PUBLIC_URL` | HTTPS-Hostname aus `CONTAINER_APP_HOSTNAME` auf Azure | Öffentliche Adresse für absolute Links in Vorschauen |
 | `TRUST_PROXY` | `false` | `X-Forwarded-*`-Header eines Reverse Proxys vertrauen |
 | `PURGE_CONTENT_DAYS` | `60` | Tage nach der Bescherung, bis Wunschzettel, Nachrichten und „Über mich“ gelöscht werden |
 | `DELETE_GROUP_DAYS` | `400` | Tage nach der Bescherung (bzw. Erstellung), bis die ganze Runde gelöscht wird |

@@ -16,15 +16,23 @@
     "build:server": "esbuild server/src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/server/index.js --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "start": "node dist/server/index.js",
     "test": "vitest run",
+    "test:tables": "node scripts/test-tables.mjs",
+    "verify": "npm run typecheck && npm test && npm run build && node scripts/test-tables.mjs --smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p server/tsconfig.json --noEmit",
-    "assets": "node scripts/process-assets.mjs"
+    "assets": "node scripts/process-assets.mjs",
+    "maintenance": "tsx server/src/index.ts --maintenance",
+    "import:sqlite": "tsx server/src/import-sqlite.ts",
+    "dev:storage": "azurite-table --tableHost 127.0.0.1 --location data/azurite --silent --disableTelemetry"
   },
   "dependencies": {
+    "@azure/data-tables": "^13.3.0",
+    "@azure/identity": "^4.13.0",
     "@hono/node-server": "^2.1.5",
     "hono": "^4.13.14",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "azurite": "^3.35.0",
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/nunito": "^5.3.0",
     "@fontsource/caveat": "^5.3.0",

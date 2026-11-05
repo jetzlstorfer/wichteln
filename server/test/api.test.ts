@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
-import { openDatabase, type DB } from '../src/db';
+import { MemoryStorage, openStorage, type Storage } from '../src/storage';
+import { TableServiceClient } from '@azure/data-tables';
 import { runMaintenance } from '../src/maintenance';
 import type { AdminView, ClaimResponse, CreateGroupResponse, InviteView, MeView, MessagesView } from '../../shared/types';
 
-let db: DB;
+let db: Storage;
 let app: ReturnType<typeof createApp>;
 
 async function call<T = any>(method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
@@ -17,13 +18,25 @@ async function call<T = any>(method: string, path: string, body?: unknown): Prom
   return { status: res.status, data: text ? JSON.parse(text) : null };
 }
 
-beforeEach(() => {
-  db = openDatabase(':memory:');
+beforeEach(async () => {
+  if (process.env.TEST_TABLE_STORAGE === 'true') {
+    process.env.STORAGE_BACKEND = 'azurite';
+    const suffix = Math.random().toString(36).slice(2);
+    process.env.TABLE_ROUNDS = `Rounds${suffix}`;
+    process.env.TABLE_LINKS = `Links${suffix}`;
+    process.env.TABLE_RATES = `Rates${suffix}`;
+    db = await openStorage();
+  } else db = new MemoryStorage();
   app = createApp(db, { disableRateLimits: true });
 });
 
-afterEach(() => {
-  db.close();
+afterEach(async () => {
+  if (process.env.TEST_TABLE_STORAGE === 'true') {
+    const service = TableServiceClient.fromConnectionString(process.env.AZURITE_CONNECTION_STRING ?? 'UseDevelopmentStorage=true', { allowInsecureConnection: true });
+    for (const name of [process.env.TABLE_ROUNDS, process.env.TABLE_LINKS, process.env.TABLE_RATES]) {
+      if (name) await service.deleteTable(name);
+    }
+  }
   delete process.env.FAKE_TODAY;
 });
 
@@ -352,12 +365,12 @@ describe('API', () => {
     const { organizerToken, admin } = await setupFamily();
     await call('POST', `/api/me/${organizerToken}/wishes`, { text: 'Socken' });
     await call('PATCH', `/api/me/${organizerToken}`, { about: 'Ich mag Tee' });
-    expect(runMaintenance(db, '2026-01-10', { purgeContentDays: 60, deleteGroupDays: 400 })).toEqual({ purged: 0, deleted: 0 });
-    expect(runMaintenance(db, '2026-03-01', { purgeContentDays: 60, deleteGroupDays: 400 })).toEqual({ purged: 1, deleted: 0 });
+    expect(await runMaintenance(db, '2026-01-10', { purgeContentDays: 60, deleteGroupDays: 400 })).toEqual({ purged: 0, deleted: 0 });
+    expect(await runMaintenance(db, '2026-03-01', { purgeContentDays: 60, deleteGroupDays: 400 })).toEqual({ purged: 1, deleted: 0 });
     const me = (await call<MeView>('GET', `/api/me/${organizerToken}`)).data;
     expect(me.me.wishes).toEqual([]);
     expect(me.me.about).toBe('');
-    expect(runMaintenance(db, '2027-02-01', { purgeContentDays: 60, deleteGroupDays: 400 })).toEqual({ purged: 0, deleted: 1 });
+    expect(await runMaintenance(db, '2027-02-01', { purgeContentDays: 60, deleteGroupDays: 400 })).toEqual({ purged: 0, deleted: 1 });
     expect((await call('GET', admin)).status).toBe(404);
   });
 

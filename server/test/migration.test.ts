@@ -2,9 +2,12 @@ import { mkdtempSync, rmSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { MIGRATIONS, openDatabase } from '../src/db';
+import { MemoryStorage } from '../src/storage';
+import { readSqliteRounds } from '../src/sqlite-import';
 
 it.each([1, 2])('upgrades schema v%i without deleting family data or replacing existing v2 links', async (version) => {
   const dir = mkdtempSync(join(tmpdir(), 'wichteln-migration-'));
@@ -43,10 +46,19 @@ it.each([1, 2])('upgrades schema v%i without deleting family data or replacing e
       legacy.close();
     }
 
+    const source = readFileSync(file);
+    const imported = readSqliteRounds(file);
+    expect(readFileSync(file)).toEqual(source);
+    expect(imported[0].participants.find((p) => p.id === 'mama')!.token).toBe('legacy-mama-token');
+    expect(imported[0].participants.find((p) => p.id === 'lisa')!.token).toBe(version === 2 ? 'verified-lisa-token' : null);
+    expect(imported[0].participants.find((p) => p.id === 'oma')!.token).toBeNull();
+
     for (let open = 0; open < 2; open++) {
       const db = openDatabase(file);
       try {
-        const app = createApp(db, { disableRateLimits: true });
+        const storage = new MemoryStorage();
+        for (const round of readSqliteRounds(file)) await storage.create(round);
+        const app = createApp(storage, { disableRateLimits: true });
         for (const name of ['lisa', 'oma']) {
           expect((await app.request(`/api/me/legacy-${name}-token`)).status).toBe(404);
           expect(db.prepare('SELECT token FROM participants WHERE id = ?').get(name))

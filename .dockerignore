@@ -6,6 +6,7 @@ coverage
 *.db-wal
 *.db-shm
 .env
+.env.*
 .git
 .github
 .DS_Store
