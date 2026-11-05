@@ -2,7 +2,6 @@ import type {
   AdminView,
   ChatMessage,
   ClaimResponse,
-  ClaimView,
   CreateGroupResponse,
   GiftStatus,
   InviteView,
@@ -69,8 +68,6 @@ export const api = {
     updateParticipant: (t: string, id: string, body: { name?: string; partnerId?: string | null }) =>
       request<{ ok: true }>('PATCH', `/admin/${e(t)}/participants/${e(id)}`, body),
     removeParticipant: (t: string, id: string) => request<{ ok: true }>('DELETE', `/admin/${e(t)}/participants/${e(id)}`),
-    verifyParticipant: (t: string, id: string, verificationCode: string) =>
-      request<{ ok: true }>('POST', `/admin/${e(t)}/participants/${e(id)}/verify`, { verificationCode }),
     addExclusion: (t: string, body: { giverId: string; receiverId: string; both: boolean }) =>
       request<{ ok: true }>('POST', `/admin/${e(t)}/exclusions`, body),
     removeExclusion: (t: string, id: string) => request<{ ok: true }>('DELETE', `/admin/${e(t)}/exclusions/${e(id)}`),
@@ -85,7 +82,6 @@ export const api = {
     get: (code: string) => request<InviteView>('GET', `/invite/${e(code)}`),
     claim: (code: string, participantId: string) => request<ClaimResponse>('POST', `/invite/${e(code)}/claim`, { participantId }),
     join: (code: string, name: string) => request<ClaimResponse>('POST', `/invite/${e(code)}/join`, { name }),
-    claimStatus: (t: string) => request<ClaimView>('GET', `/claim/${e(t)}`),
   },
 
   me: {

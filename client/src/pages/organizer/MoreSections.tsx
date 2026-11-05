@@ -117,7 +117,7 @@ export function SettingsSection({ view, token, reload }: { view: AdminView; toke
             checked={form.allowSelfJoin}
             onChange={(v) => set('allowSelfJoin', v)}
             label="Neue Namen dürfen sich selbst eintragen"
-            description="Auch neue Namen brauchen eine persönliche Code-Prüfung vor Ort. Nur bis zur Auslosung."
+            description="Neue Personen bekommen direkt ihren persönlichen Link. Nur bis zur Auslosung."
           />
           <Button type="submit" className="w-full" loading={saving}>
             Speichern
@@ -174,7 +174,7 @@ export function NextRoundSection({ view, token }: { view: AdminView; token: stri
       id="naechstes-jahr"
       title="Nächstes Jahr wieder?"
       icon={<CalendarPlus className="size-5 text-fir-500" />}
-      intro="Nach der gemeinsam freigegebenen Auflösung: Personen, Paare und Ausnahmen werden übernommen. Alle bestätigen sich neu vor Ort; niemand zieht dieselbe Person wie heuer."
+      intro="Nach der gemeinsam freigegebenen Auflösung: Personen, Paare und Ausnahmen werden übernommen. Alle wählen ihren Namen in der neuen Einladung; niemand zieht dieselbe Person wie heuer."
     >
       <form onSubmit={create} className="space-y-3">
         <Field label="Name der neuen Runde" htmlFor="n-name">

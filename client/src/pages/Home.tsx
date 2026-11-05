@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, Crown, EyeOff, Gift, HeartHandshake, MessageCircleQuestion, Smartphone, Trash2 } from 'lucide-react';
+import { ChevronRight, Crown, Gift, Trash2 } from 'lucide-react';
 import { Footer, TopBar } from '../components/Layout';
 import { ConfirmSheet } from '../components/ui';
 import { forgetRound, listRounds, type SavedRound } from '../lib/storage';
@@ -19,7 +19,7 @@ const STEPS = [
     w: 159,
     h: 256,
     title: 'Link in die Familiengruppe',
-    text: 'Ein Link für alle. Jede:r wählt den Namen und zeigt den Code persönlich am eigenen Handy vor.',
+    text: 'Ein Link für alle. Jede:r wählt den eigenen Namen und bekommt sofort einen geheimen persönlichen Link.',
   },
   {
     img: '/img/packerl-256.webp',
@@ -35,13 +35,6 @@ const STEPS = [
     title: 'Wünschen, fragen, freuen',
     text: 'Wunschzettel schreiben, anonym Fragen stellen und jeden Tag ein Adventkalender-Türchen öffnen.',
   },
-];
-
-const FEATURES = [
-  { icon: Smartphone, title: 'Ohne Passwort', text: 'Einmal vor Ort bestätigen, danach dein privater Link.' },
-  { icon: HeartHandshake, title: 'Paare ziehen sich nie', text: 'Und eigene Ausnahmen gehen auch.' },
-  { icon: EyeOff, title: 'Deine Zuteilung', text: 'Kein Organisator-Zugriff auf fremde persönliche Links.' },
-  { icon: MessageCircleQuestion, title: 'Anonyme Fragen', text: '„Welche Größe hast du?“ – ohne sich zu verraten.' },
 ];
 
 export function Home() {
@@ -77,12 +70,11 @@ export function Home() {
               Wichteln mit dem <span className="gold-text">Christkind</span>
             </h1>
             <p className="mx-auto mt-3 max-w-md text-lg text-cream-200">
-              Geheim auslosen, Wunschzettel schreiben und Packerl schenken – das Familien-Wichteln fürs Handy.
+              Geheim auslosen, Wunschzettel schreiben und Packerl schenken.
             </p>
             <Link to="/neu" className="btn btn-primary mt-6 w-full max-w-sm text-lg">
               <Gift className="size-5" /> Neue Wichtel-Runde starten
             </Link>
-            <p className="mt-3 text-sm text-cream-200/80">Kostenlos · ohne Passwort · persönlich bestätigt</p>
           </div>
 
           {rounds.length > 0 ? (
@@ -144,16 +136,6 @@ export function Home() {
                 </li>
               ))}
             </ol>
-          </section>
-
-          <section className="mt-10 grid grid-cols-2 gap-3" aria-label="Was die App kann">
-            {FEATURES.map(({ icon: Icon, title, text }) => (
-              <div key={title} className="card-dark !p-4">
-                <Icon className="size-6 text-gold-300" aria-hidden />
-                <h3 className="mt-2 font-sans text-base font-extrabold text-cream-50">{title}</h3>
-                <p className="mt-0.5 text-sm text-cream-200/85">{text}</p>
-              </div>
-            ))}
           </section>
 
           <section className="card mt-10 text-center">

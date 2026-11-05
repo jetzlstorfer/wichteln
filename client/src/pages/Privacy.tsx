@@ -18,7 +18,7 @@ export function Privacy() {
           <li>Name der Runde, Budget, Datum der Bescherung und die Nachricht der Organisator:in</li>
           <li>die eingetragenen Vornamen bzw. Spitznamen sowie Paare und Ausnahmen</li>
           <li>wer wen gezogen hat – jede Person sieht nur die eigene Zuteilung; eine gemeinsame Auflösung braucht die Zustimmung aller</li>
-          <li>vorübergehende Bestätigungscodes (30 Minuten gültig) und der Zeitpunkt der persönlichen Prüfung</li>
+          <li>der Zeitpunkt, zu dem eine Person ihren Namen ausgewählt hat</li>
           <li>freiwillig: Wunschzettel, ein paar Worte über dich und die anonymen Nachrichten</li>
           <li>wann jemand zuletzt vorbeigeschaut hat und ob die eigene Zuteilung schon angesehen wurde</li>
         </ul>
@@ -36,12 +36,12 @@ export function Privacy() {
           Wiederherstellung möglich. Bei einem weitergegebenen Link müsst ihr die betroffene Runde löschen und neu starten.
         </p>
 
-        <h2>Persönliche Bestätigung statt Namensraten</h2>
+        <h2>Einladungen nur in der Familie teilen</h2>
         <p>
-          Der gemeinsame Einladungslink gibt allein keinen persönlichen Zugang. Zeig deinen Code direkt auf deinem eigenen
-          Handy vor. Die Organisator:in prüft vor Ort, dass du die richtige Person bist, und bestätigt den Code.
-          Nur dein Browser erhält danach den Zugang. Wir vertrauen dabei auf eine ehrliche persönliche Prüfung;
-          die App kann die Identität nicht selbst erkennen. Screenshots und weitergeleitete Codes reichen dafür nicht.
+          Jede Person wählt ihren eigenen Namen und erhält sofort einen zufälligen, schwer zu erratenden persönlichen Link.
+          Ein vergebener Name kann nicht erneut ausgewählt werden. Es gibt keine Identitätsprüfung: Wer den gemeinsamen
+          Einladungslink kennt, könnte einen noch freien fremden Namen auswählen. Teile die Einladung deshalb nur im
+          vertrauten Familienkreis. Die langen persönlichen Links schützen vor Erraten, nicht vor einer falschen Namensauswahl.
         </p>
         <p>
           Das schützt vor Zugriffen über den Organisator-Link, ist aber keine Ende-zu-Ende-Verschlüsselung.

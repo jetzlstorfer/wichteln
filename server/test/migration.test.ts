@@ -6,7 +6,7 @@ import { expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { MIGRATIONS, openDatabase } from '../src/db';
 
-it('revokes unverified legacy links without deleting family data and applies the upgrade only once', async () => {
+it.each([1, 2])('upgrades schema v%i without deleting family data or replacing existing v2 links', async (version) => {
   const dir = mkdtempSync(join(tmpdir(), 'wichteln-migration-'));
   const file = join(dir, 'legacy.db');
   try {
@@ -30,6 +30,15 @@ it('revokes unverified legacy links without deleting family data and applies the
         INSERT INTO messages (id, group_id, giver_id, receiver_id, from_giver, body, created_at)
           VALUES ('message', 'family', 'mama', 'lisa', 1, 'Welche Farbe?', '2026-11-04');
       `);
+      if (version === 2) {
+        legacy.exec(MIGRATIONS[1]);
+        legacy.exec(`
+          UPDATE participants SET token = 'verified-lisa-token', verified_at = '2026-11-04', claimed_at = '2026-11-04' WHERE id = 'lisa';
+          INSERT INTO claim_requests (token, participant_id, verification_code, expires_at)
+            VALUES ('pending-oma-token', 'oma', 'ABCDE12345', '2099-12-24');
+          PRAGMA user_version = 2;
+        `);
+      }
     } finally {
       legacy.close();
     }
@@ -40,9 +49,13 @@ it('revokes unverified legacy links without deleting family data and applies the
         const app = createApp(db, { disableRateLimits: true });
         for (const name of ['lisa', 'oma']) {
           expect((await app.request(`/api/me/legacy-${name}-token`)).status).toBe(404);
-          expect(db.prepare('SELECT token, verified_at FROM participants WHERE id = ?').get(name))
-            .toMatchObject({ token: null, verified_at: null });
+          expect(db.prepare('SELECT token FROM participants WHERE id = ?').get(name))
+            .toMatchObject({ token: version === 2 && name === 'lisa' ? 'verified-lisa-token' : null });
         }
+        expect((await app.request('/api/me/pending-oma-token')).status).toBe(404);
+        if (version === 2) expect((await app.request('/api/me/verified-lisa-token')).status).toBe(200);
+        expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'claim_requests'").get()).toBeUndefined();
+        expect(db.prepare('PRAGMA table_info(participants)').all().map((c) => c.name)).not.toContain('verified_at');
         expect((await app.request('/api/me/legacy-mama-token')).status).toBe(200);
         expect((await app.request('/api/admin/legacy-admin-token/participants/lisa/link', { method: 'POST' })).status).toBe(404);
         expect(db.prepare('SELECT text FROM wishes WHERE id = ?').get('wish')).toMatchObject({ text: 'Buch' });

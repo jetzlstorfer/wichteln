@@ -25,15 +25,6 @@ export function TopBar({ back, right }: { back?: { to: string; label: string }; 
 
 export function Footer() {
   return (
-    <footer className="relative z-10 mt-12 pb-4 text-center text-sm text-cream-200/70">
-      <p className="divider-stars mb-3 text-xs">✦</p>
-      <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-        <span>Mit Liebe gemacht für Familien in Österreich</span>
-        <span aria-hidden="true">·</span>
-        <Link to="/datenschutz" className="underline decoration-gold-400/50 underline-offset-4 hover:text-gold-300">
-          Datenschutz
-        </Link>
-      </p>
-    </footer>
+    <div aria-hidden="true" className="divider-stars relative z-10 mt-12 pb-4 text-xs">✦</div>
   );
 }

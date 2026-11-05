@@ -89,7 +89,7 @@ export function Organizer() {
           url={absoluteUrl(`/orga/${token}`)}
           flagKey={`orga-saved-${token.slice(0, 10)}`}
           title="Speichere dir diesen Link!"
-          text="Das ist dein Organisator-Schlüssel – ganz ohne Passwort. Schick ihn dir z. B. selbst per WhatsApp, damit du ihn wiederfindest. Nicht in die Familiengruppe posten!"
+          text="Das ist dein Organisator-Schlüssel. Schick ihn dir z. B. selbst per WhatsApp, damit du ihn wiederfindest. Nicht in die Familiengruppe posten!"
           shareText={`Mein Organisator-Link für „${group.name}“ (nicht weitergeben):`}
         />
         <StatusSteps view={data} />
@@ -99,7 +99,7 @@ export function Organizer() {
             <p className="font-bold">Alte persönliche Links wurden gesperrt</p>
             <p className="mt-2 text-sm">
               Diese Runde stammt aus der Version ohne Identitätsprüfung. Namen und Wunschzettel bleiben erhalten.
-              Setze die Auslosung zurück, bestätige alle Personen vor Ort und lose neu aus.
+              Setze die Auslosung zurück, lass alle ihren Namen in der Einladung auswählen und lose neu aus.
               Bereits bekannte Zuteilungen lassen sich nicht nachträglich geheim machen.
             </p>
           </div>
@@ -122,7 +122,7 @@ function StatusSteps({ view }: { view: AdminView }) {
   const people = view.participants;
   const steps = [
     { label: 'Familie eintragen', done: people.length >= 3, href: '#familie' },
-    { label: 'Alle bestätigen', done: people.length >= 3 && people.every((p) => p.claimed), href: '#familie' },
+    { label: 'Alle melden sich', done: people.length >= 3 && people.every((p) => p.claimed), href: '#einladen' },
     { label: 'Auslosen', done: view.group.drawn, href: '#auslosen' },
     { label: 'Bescherung', done: view.group.revealed, href: '#auslosen' },
   ];
@@ -204,7 +204,7 @@ function InviteSection({ view }: { view: AdminView }) {
     .join('\n');
   const text = `✨🎄 Heuer wichteln wir mit dem Christkind! 🎄✨\n\n${group.organizerName} hat die Runde „${group.name}“ gestartet.${
     details ? `\n${details}` : ''
-  }\n\nWähl deinen Namen und zeig mir den Bestätigungscode persönlich auf deinem Handy. Erst danach bekommst nur du deinen geheimen Wichtel-Link:`;
+  }\n\nWähl deinen eigenen Namen und du bekommst sofort deinen geheimen Wichtel-Link. Bitte speichere ihn nur für dich. Diesen Einladungslink bitte nur innerhalb unserer Familie teilen:`;
 
   return (
     <Section
@@ -215,8 +215,8 @@ function InviteSection({ view }: { view: AdminView }) {
         participants.length < 2
           ? 'Trag zuerst unten alle ein – oder schick den Link gleich, dann tragen sich alle selbst ein.'
           : waiting === 0
-            ? 'Alle sind bestätigt. 🎉'
-            : `Ein Link für alle, z. B. in die Familiengruppe. Danach jeden Code persönlich am Handy vergleichen. ${waiting === 1 ? '1 Bestätigung fehlt' : `${waiting} Bestätigungen fehlen`} noch.`
+            ? 'Alle sind dabei. 🎉'
+            : `Ein Link für alle – bitte nur in der Familie teilen. Jede Person wählt ihren eigenen Namen. ${waiting === 1 ? '1 Anmeldung fehlt' : `${waiting} Anmeldungen fehlen`} noch.`
       }
     >
       <ShareButtons url={url} text={text} title={`Wichteln: ${group.name}`} />

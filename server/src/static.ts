@@ -51,7 +51,7 @@ export function attachStatic(app: Hono, db: DB, options: StaticOptions) {
         | undefined;
       if (group) {
         const title = `Einladung zum Wichteln: ${group.name}`;
-        const description = `${group.organizer_name} lädt dich ein – wähle deinen Namen und bestätige ihn persönlich per Code, bevor das Christkind auslost. ✨`;
+        const description = `${group.organizer_name} lädt dich ein – wähle deinen eigenen Namen und erhalte deinen persönlichen Wichtel-Link. ✨`;
         html = setMeta(html, 'property', 'og:title', title);
         html = setMeta(html, 'property', 'og:description', description);
         html = setMeta(html, 'name', 'description', description);

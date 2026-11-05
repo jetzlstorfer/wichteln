@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { openDatabase, type DB } from '../src/db';
 import { runMaintenance } from '../src/maintenance';
-import type { AdminView, ClaimResponse, ClaimView, CreateGroupResponse, InviteView, MeView, MessagesView } from '../../shared/types';
+import type { AdminView, ClaimResponse, CreateGroupResponse, InviteView, MeView, MessagesView } from '../../shared/types';
 
 let db: DB;
 let app: ReturnType<typeof createApp>;
@@ -25,7 +25,6 @@ beforeEach(() => {
 afterEach(() => {
   db.close();
   delete process.env.FAKE_TODAY;
-  vi.useRealTimers();
 });
 
 /** Creates a family round with Mama (organizer) + 6 people, two couples. */
@@ -52,25 +51,17 @@ async function setupFamily() {
   return { adminToken, organizerToken: participantToken!, admin, view, id };
 }
 
-async function verifyClaim(admin: string, participantId: string, claimToken: string) {
-  const pending = (await call<ClaimView>('GET', `/api/claim/${claimToken}`)).data;
-  if (pending.status !== 'pending') throw new Error('Expected a pending in-person check');
-  const confirmed = await call('POST', `${admin}/participants/${participantId}/verify`, { verificationCode: pending.verificationCode });
-  expect(confirmed).toEqual({ status: 200, data: { ok: true } });
-  expect((await call<ClaimView>('GET', `/api/claim/${claimToken}`)).data.status).toBe('verified');
-  return claimToken;
-}
-
-async function claimAndVerify(admin: string, invite: string, participantId: string) {
+async function claimPerson(invite: string, participantId: string) {
   const request = await call<ClaimResponse>('POST', `${invite}/claim`, { participantId });
   expect(request.status).toBe(201);
-  return verifyClaim(admin, participantId, request.data.claimToken);
+  expect(request.data.token).toMatch(/^[A-Za-z0-9_-]{24}$/);
+  return request.data.token;
 }
 
-async function verifyAll(admin: string, view: AdminView) {
+async function claimAll(view: AdminView) {
   const tokens = new Map<string, string>();
   for (const p of view.participants.filter((p) => !p.claimed)) {
-    tokens.set(p.name, await claimAndVerify(admin, `/api/invite/${view.group.inviteCode}`, p.id));
+    tokens.set(p.name, await claimPerson(`/api/invite/${view.group.inviteCode}`, p.id));
   }
   return tokens;
 }
@@ -113,14 +104,14 @@ describe('API', () => {
     expect(inv.participants.find((p) => p.name === 'Mama')!.claimed).toBe(true);
     expect(inv.participants.find((p) => p.name === 'Lisa')!.claimed).toBe(false);
 
-    const lisaToken = await claimAndVerify(admin, invite, id('Lisa'));
+    const lisaToken = await claimPerson(invite, id('Lisa'));
     const again = await call('POST', `${invite}/claim`, { participantId: id('Lisa') });
     expect(again.status).toBe(409);
     expect(again.data.error).toBe('already-claimed');
 
     const tokens = new Map<string, string>([['Mama', organizerToken], ['Lisa', lisaToken]]);
     for (const name of ['Papa', 'Thomas', 'Oma', 'Opa', 'Anna']) {
-      tokens.set(name, await claimAndVerify(admin, invite, id(name)));
+      tokens.set(name, await claimPerson(invite, id(name)));
     }
 
     const before = (await call<MeView>('GET', `/api/me/${tokens.get('Lisa')}`)).data;
@@ -193,49 +184,54 @@ describe('API', () => {
     const view = (await call<AdminView>('GET', admin)).data;
     const [a, b] = view.participants;
     await call('PATCH', `${admin}/participants/${a.id}`, { partnerId: b.id });
-    await verifyAll(admin, view);
+    await claimAll(view);
     const res = await call('POST', `${admin}/draw`);
     expect(res.status).toBe(422);
     expect(res.data.error).toBe('impossible');
     expect(res.data.message).toMatch(/geht die Auslosung nicht auf/);
   });
 
-  it('requires an in-person code before giving access and allows competing requests without name squatting', async () => {
+  it('immediately grants access to the first claimant and never discloses their token in group views', async () => {
     const { admin, view, id } = await setupFamily();
     const invite = `/api/invite/${view.group.inviteCode}`;
-    const attacker = (await call<ClaimResponse>('POST', `${invite}/claim`, { participantId: id('Oma') })).data.claimToken;
-    const realPerson = (await call<ClaimResponse>('POST', `${invite}/claim`, { participantId: id('Oma') })).data.claimToken;
-    expect((await call('GET', `/api/me/${attacker}`)).status).toBe(404);
-    expect((await call('POST', `/api/me/${attacker}/wishes`, { text: 'Not mine' })).status).toBe(404);
-    expect((await call('POST', `${admin}/draw`)).data.error).toBe('unverified-participants');
-    expect((await call<InviteView>('GET', invite)).data.participants.find((p) => p.id === id('Oma'))!.claimed).toBe(false);
-    const pending = (await call<ClaimView>('GET', `/api/claim/${realPerson}`)).data;
-    if (pending.status !== 'pending') throw new Error('Expected pending request');
+    expect((await call('POST', `${admin}/draw`)).data.error).toBe('unclaimed-participants');
+    const token = await claimPerson(invite, id('Oma'));
+    expect((await call<MeView>('GET', `/api/me/${token}`)).data.me.name).toBe('Oma');
+    expect((await call('POST', `/api/me/${token}/wishes`, { text: 'Ein Buch' })).status).toBe(201);
+    const again = await call('POST', `${invite}/claim`, { participantId: id('Oma') });
+    expect(again.status).toBe(409);
+    expect(again.data.error).toBe('already-claimed');
+    expect(again.data.token).toBeUndefined();
+    expect((await call<InviteView>('GET', invite)).data.participants.find((p) => p.id === id('Oma'))!.claimed).toBe(true);
     for (const path of [admin, invite]) {
       const body = JSON.stringify((await call('GET', path)).data);
-      expect(body).not.toContain(realPerson);
-      expect(body).not.toContain(attacker);
-      expect(body).not.toContain(pending.verificationCode);
+      expect(body).not.toContain(token);
     }
-    expect((await call('POST', `${admin}/participants/${id('Opa')}/verify`, {
-      verificationCode: pending.verificationCode,
-    })).data.error).toBe('invalid-code');
-    await verifyClaim(admin, id('Oma'), realPerson);
-    expect((await call('GET', `/api/claim/${attacker}`)).status).toBe(404);
-    expect((await call('GET', `/api/me/${attacker}`)).status).toBe(404);
-    expect((await call<MeView>('GET', `/api/me/${realPerson}`)).data.me.name).toBe('Oma');
-    expect((await call('POST', `${admin}/participants/${id('Oma')}/verify`, {
-      verificationCode: pending.verificationCode,
-    })).data.error).toBe('already-claimed');
+    expect((await call('GET', `/api/me/${id('Oma')}`)).status).toBe(404);
+    expect((await call('GET', `/api/me/${view.group.inviteCode}`)).status).toBe(404);
+    expect((await call<MeView>('GET', `/api/me/${token}`)).data.me.wishes[0].text).toBe('Ein Buch');
+  });
+
+  it('grants exactly one link when requests race for the same name', async () => {
+    const { view, id } = await setupFamily();
+    const results = await Promise.all(Array.from({ length: 10 }, () =>
+      call('POST', `/api/invite/${view.group.inviteCode}/claim`, { participantId: id('Lisa') }),
+    ));
+    expect(results.filter((r) => r.status === 201)).toHaveLength(1);
+    expect(results.filter((r) => r.status === 409)).toHaveLength(9);
+    const token = results.find((r) => r.status === 201)!.data.token;
+    expect((await call<MeView>('GET', `/api/me/${token}`)).data.me.name).toBe('Lisa');
+    for (const result of results.filter((r) => r.status === 409)) expect(result.data.token).toBeUndefined();
   });
 
   it('removes all organizer link minting and reset paths before and after the draw', async () => {
     const { admin, view, id } = await setupFamily();
-    const tokens = await verifyAll(admin, view);
+    const tokens = await claimAll(view);
+    expect(new Set(tokens.values()).size).toBe(tokens.size);
     for (const afterDraw of [false, true]) {
       if (afterDraw) expect((await call('POST', `${admin}/draw`)).status).toBe(200);
       for (const name of ['Oma', 'Mama']) {
-        for (const action of ['link', 'unclaim']) {
+        for (const action of ['link', 'unclaim', 'verify']) {
           expect((await call('POST', `${admin}/participants/${id(name)}/${action}`)).status).toBe(404);
         }
       }
@@ -245,47 +241,23 @@ describe('API', () => {
     }
     const invite = `/api/invite/${view.group.inviteCode}`;
     expect((await call('POST', `${invite}/claim`, { participantId: id('Oma') })).data.error).toBe('already-drawn');
-    expect((await call('POST', `${admin}/participants/${id('Oma')}/verify`, { verificationCode: 'ABCDE12345' })).data.error).toBe('already-drawn');
     expect((await call('POST', `${admin}/draw/reset`)).status).toBe(200);
     expect((await call('POST', `${invite}/claim`, { participantId: id('Oma') })).data.error).toBe('already-claimed');
     expect((await call<MeView>('GET', `/api/me/${tokens.get('Oma')}`)).data.recipient).toBeNull();
   });
 
-  it('expires verification codes without losing names or preventing a new request', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    const { admin, view, id } = await setupFamily();
-    const invite = `/api/invite/${view.group.inviteCode}`;
-    const { claimToken } = (await call<ClaimResponse>('POST', `${invite}/claim`, { participantId: id('Oma') })).data;
-    const pending = (await call<ClaimView>('GET', `/api/claim/${claimToken}`)).data;
-    if (pending.status !== 'pending') throw new Error('Expected pending request');
-    vi.setSystemTime(new Date(Date.now() + 30 * 60_000));
-    expect((await call('GET', `/api/claim/${claimToken}`)).data.error).toBe('claim-expired');
-    expect((await call('POST', `${admin}/participants/${id('Oma')}/verify`, {
-      verificationCode: pending.verificationCode,
-    })).data.error).toBe('invalid-code');
-    expect((await call('GET', `/api/me/${claimToken}`)).status).toBe(404);
-    await claimAndVerify(admin, invite, id('Oma'));
-  });
-
-  it('scopes verification codes to the intended group and limits guesses', async () => {
+  it('scopes claims to their group and rate-limits repeated attempts', async () => {
     const family = await setupFamily();
     const other = await setupFamily();
-    const request = (await call<ClaimResponse>('POST', `/api/invite/${family.view.group.inviteCode}/claim`, {
-      participantId: family.id('Oma'),
-    })).data;
-    const pending = (await call<ClaimView>('GET', `/api/claim/${request.claimToken}`)).data;
-    if (pending.status !== 'pending') throw new Error('Expected pending request');
-    expect((await call('POST', `${other.admin}/participants/${other.id('Oma')}/verify`, {
-      verificationCode: pending.verificationCode,
-    })).data.error).toBe('invalid-code');
+    const invite = `/api/invite/${family.view.group.inviteCode}`;
+    expect((await call('POST', `${invite}/claim`, { participantId: other.id('Oma') })).status).toBe(404);
     app = createApp(db);
-    const wrongCode = pending.verificationCode === '0000000000' ? '1111111111' : '0000000000';
-    for (let i = 0; i < 20; i++) {
-      expect((await call('POST', `${family.admin}/participants/${family.id('Oma')}/verify`, { verificationCode: wrongCode })).status).toBe(400);
+    const token = await claimPerson(invite, family.id('Oma'));
+    for (let i = 1; i < 30; i++) {
+      expect((await call('POST', `${invite}/claim`, { participantId: family.id('Oma') })).status).toBe(409);
     }
-    expect((await call('POST', `${family.admin}/participants/${family.id('Oma')}/verify`, {
-      verificationCode: pending.verificationCode,
-    })).status).toBe(429);
+    expect((await call('POST', `${invite}/claim`, { participantId: family.id('Opa') })).status).toBe(429);
+    expect((await call('GET', `/api/me/${token}`)).status).toBe(200);
   });
 
   it('supports self-join until the draw', async () => {
@@ -293,13 +265,12 @@ describe('API', () => {
     const invite = `/api/invite/${view.group.inviteCode}`;
     const joined = await call<ClaimResponse>('POST', `${invite}/join`, { name: 'Cousine Mia' });
     expect(joined.status).toBe(201);
-    expect((await call('GET', `/api/me/${joined.data.claimToken}`)).status).toBe(404);
+    expect((await call<MeView>('GET', `/api/me/${joined.data.token}`)).data.me.name).toBe('Cousine Mia');
     expect((await call('POST', `${invite}/join`, { name: 'cousine mia' })).status).toBe(409);
     const updated = (await call<AdminView>('GET', admin)).data;
     const mia = updated.participants.find((p) => p.name === 'Cousine Mia')!;
-    expect(mia.claimed).toBe(false);
-    await verifyClaim(admin, mia.id, joined.data.claimToken);
-    await verifyAll(admin, view);
+    expect(mia.claimed).toBe(true);
+    await claimAll(view);
     expect((await call('POST', `${admin}/draw`)).status).toBe(200);
     expect((await call('POST', `${invite}/join`, { name: 'Zu spät' })).status).toBe(409);
     expect((await call<InviteView>('GET', invite)).data.group.allowSelfJoin).toBe(false);
@@ -322,7 +293,7 @@ describe('API', () => {
     const invite = `/api/invite/${view.group.inviteCode}`;
     const tokens = new Map<string, string>([['Mama', organizerToken]]);
     for (const p of view.participants.filter((p) => !p.claimed)) {
-      tokens.set(p.name, await claimAndVerify(admin, invite, id(p.name)));
+      tokens.set(p.name, await claimPerson(invite, id(p.name)));
     }
     await call('POST', `${admin}/exclusions`, { giverId: id('Lisa'), receiverId: id('Thomas'), both: true });
     await call('POST', `${admin}/draw`);
@@ -345,14 +316,14 @@ describe('API', () => {
     const mama = nextView.participants.find((p) => p.name === 'Mama')!;
     expect(nameOf.get(mama.partnerId!)).toBe('Papa');
 
-    await verifyAll(`/api/admin/${next.data.adminToken}`, nextView);
+    await claimAll(nextView);
     const drawn = await call('POST', `/api/admin/${next.data.adminToken}/draw`);
     expect(drawn.status).toBe(200);
   });
 
   it('requires unanimous revocable consent and resets consent for every new draw', async () => {
     const { admin, view, organizerToken } = await setupFamily();
-    const tokens = [...(await verifyAll(admin, view)).values(), organizerToken];
+    const tokens = [...(await claimAll(view)).values(), organizerToken];
     expect((await call('POST', `/api/me/${organizerToken}/reveal-consent`, { consent: true })).data.error).toBe('not-drawn');
     expect((await call('POST', `${admin}/draw`)).status).toBe(200);
     expect((await call('POST', `${admin}/reveal`, { revealed: true })).data.error).toBe('consent-required');

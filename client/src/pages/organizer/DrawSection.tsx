@@ -51,10 +51,10 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
             ) : (
               <>
                 <p className="font-bold text-ink-900">
-                  {claimed} von {total} bestätigt.
+                  {claimed} von {total} sind dabei.
                 </p>
                 <p className="mt-1">
-                  Alle müssen zuerst ihren Code persönlich vorzeigen und bestätigt werden. Erst dann kann das Christkind auslosen.
+                  Sobald alle ihren Namen in der Einladung ausgewählt haben, kann das Christkind auslosen.
                 </p>
               </>
             )}

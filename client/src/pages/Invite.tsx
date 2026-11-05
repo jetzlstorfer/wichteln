@@ -7,7 +7,7 @@ import { Button, ConfirmSheet, ErrorState, Initials, Spinner, useToast } from '.
 import { api, ApiError, errorMessage } from '../lib/api';
 import { formatDate, formatEuro } from '../lib/format';
 import { useDocumentTitle, useLoader } from '../lib/hooks';
-import { findByInvite } from '../lib/storage';
+import { findByInvite, rememberRound } from '../lib/storage';
 
 export function Invite() {
   const { code = '' } = useParams();
@@ -45,12 +45,17 @@ export function Invite() {
   const { group, participants } = data;
   const open = participants.filter((p) => !p.claimed);
 
+  const enter = (token: string, personName: string) => {
+    rememberRound({ kind: 'w', token, personName, groupName: group.name, inviteCode: code });
+    navigate(`/w/${token}`, { replace: true });
+  };
+
   const claim = async () => {
     if (!picked) return;
     setClaiming(true);
     try {
-      const { claimToken } = await api.invite.claim(code, picked.id);
-      navigate(`/bestaetigen/${claimToken}`);
+      const { token } = await api.invite.claim(code, picked.id);
+      enter(token, picked.name);
     } catch (err) {
       toast(errorMessage(err), 'error');
       setClaiming(false);
@@ -65,8 +70,8 @@ export function Invite() {
     if (!name) return;
     setJoining(true);
     try {
-      const { claimToken } = await api.invite.join(code, name);
-      navigate(`/bestaetigen/${claimToken}`);
+      const { token } = await api.invite.join(code, name);
+      enter(token, name);
     } catch (err) {
       toast(errorMessage(err), 'error');
       setJoining(false);
@@ -128,8 +133,8 @@ export function Invite() {
         </h2>
         <p className="mt-1 text-ink-700">
           {open.length > 0
-            ? 'Wähle deinen Namen und zeig der organisierenden Person den Bestätigungscode persönlich auf deinem Handy. Erst danach bekommst nur du deinen Wichtel-Link.'
-            : 'Alle Namen sind bereits bestätigt. Verwende deinen gespeicherten persönlichen Link.'}
+            ? 'Tipp auf deinen Namen und du bekommst sofort deinen geheimen Wichtel-Link.'
+            : 'Alle Namen sind schon vergeben. Verwende deinen gespeicherten persönlichen Link.'}
         </p>
         <ul className="mt-4 grid grid-cols-2 gap-2">
           {participants.map((p) => (
@@ -200,8 +205,8 @@ export function Invite() {
         confirmLabel={`Ja, ich bin ${picked?.name}`}
       >
         <p>
-          Als Nächstes bekommst du einen Code. Zeig ihn {group.organizerName} direkt auf deinem eigenen Handy.
-          Das Antippen allein gibt noch keinen Zugang. Bei einem falschen Namen kannst du vor der Bestätigung zurückgehen.
+          Wähle bitte nur deinen eigenen Namen. Danach ist er vergeben und du bekommst sofort deinen persönlichen Link.
+          Speichere ihn gut und gib ihn nicht weiter – auch {group.organizerName} kann ihn nicht abrufen oder ersetzen.
         </p>
       </ConfirmSheet>
     </main>

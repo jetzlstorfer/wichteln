@@ -37,7 +37,7 @@ export function PeopleSection({ view, token, reload }: { view: AdminView; token:
       intro={
         people.length === 0
           ? 'Trag alle ein, die mitwichteln – Vornamen oder Spitznamen reichen.'
-          : `${pluralPeople(people.length)} · ${claimedCount} von ${people.length} bestätigt. Tipp auf einen Namen, um den Code vor Ort zu vergleichen.`
+          : `${pluralPeople(people.length)} · ${claimedCount} von ${people.length} sind dabei. Jede Person wählt ihren Namen selbst in der Einladung.`
       }
     >
       {!drawn ? (
@@ -116,7 +116,7 @@ function StatusLine({ p, drawn }: { p: AdminParticipant; drawn: boolean }) {
   if (!p.claimed) {
     return (
       <span className="flex min-w-0 items-center gap-1 text-sm text-ink-500">
-        <UserRound className="size-3.5 shrink-0" /> noch nicht bestätigt
+        <UserRound className="size-3.5 shrink-0" /> wartet auf Anmeldung
       </span>
     );
   }
@@ -134,7 +134,7 @@ function StatusLine({ p, drawn }: { p: AdminParticipant; drawn: boolean }) {
   return (
     <span className="flex min-w-0 items-center gap-1 text-sm text-fir-600">
       <UserCheck className="size-3.5 shrink-0" />
-      ist bestätigt
+      ist dabei
       {p.lastSeenAt ? <span className="text-ink-300"> · {relativeTime(p.lastSeenAt)}</span> : null}
     </span>
   );
@@ -155,14 +155,10 @@ function PersonSheet({
 }) {
   const { busy, run } = useAction(reload);
   const [name, setName] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [checkedInPerson, setCheckedInPerson] = useState(false);
   const personId = person?.id;
 
   useEffect(() => {
     setName(person?.name ?? '');
-    setVerificationCode('');
-    setCheckedInPerson(false);
     // Only reset when a different person is opened, not on background refreshes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personId]);
@@ -175,15 +171,6 @@ function PersonSheet({
     e.preventDefault();
     if (name.trim() && name.trim() !== person.name) {
       await run('rename', () => api.admin.updateParticipant(token, person.id, { name: name.trim() }), 'Name geändert');
-    }
-  };
-
-  const verify = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!checkedInPerson) return;
-    if (await run('verify', () => api.admin.verifyParticipant(token, person.id, verificationCode), `${person.name} bestätigt`)) {
-      setVerificationCode('');
-      setCheckedInPerson(false);
     }
   };
 
@@ -224,39 +211,24 @@ function PersonSheet({
 
       <div className="mt-5 rounded-2xl border border-cream-300 p-4">
         <h3 className="flex items-center gap-2 font-bold">
-          <ShieldCheck className="size-4 text-gold-600" /> Persönlich bestätigen
+          <ShieldCheck className="size-4 text-gold-600" /> Persönlicher Link
         </h3>
         {person.claimed ? (
           <p className="mt-2 text-sm text-ink-700">
-            {firstName(person.name)} ist bestätigt. Der persönliche Link gehört nur dieser Person.
+            {firstName(person.name)} ist dabei. Der persönliche Link gehört nur dieser Person.
             Du kannst ihn weder anzeigen noch ersetzen. Bei Verlust hilft nur eine gespeicherte Kopie;
             ohne Kopie braucht ihr eine neue Runde.
           </p>
         ) : drawn ? (
           <p className="mt-2 text-sm text-berry-600">
-            Diese ältere Runde enthält noch unbestätigte Zugänge. Setze zuerst die Auslosung zurück,
-            bestätige alle Personen vor Ort und lose neu aus. Alte Zuteilungen können bereits bekannt sein.
+            Diese ältere Runde enthält noch nicht vergebene Namen. Setze zuerst die Auslosung zurück,
+            lass alle ihren Namen auswählen und lose neu aus. Alte Zuteilungen können bereits bekannt sein.
           </p>
         ) : (
-          <form onSubmit={verify} className="mt-3 space-y-3">
-            <p className="text-sm text-ink-700">
-              {firstName(person.name)} öffnet die Einladung auf dem eigenen Handy und wählt den Namen.
-              Vergleiche den dort angezeigten Code persönlich – keine fremden Screenshots oder weitergeleiteten Codes.
-            </p>
-            <label htmlFor="verification-code" className="field-label">Code vom Handy</label>
-            <input id="verification-code" className="input font-mono uppercase" required
-              value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)}
-              placeholder="ABCDE-12345" maxLength={11} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
-            <label className="flex items-start gap-2 text-sm text-ink-700">
-              <input type="checkbox" className="mt-1 size-4 shrink-0" required checked={checkedInPerson}
-                onChange={(e) => setCheckedInPerson(e.target.checked)} />
-              Ich habe {person.name} und den Code auf dem eigenen Handy persönlich überprüft.
-            </label>
-            <Button type="submit" variant="fir" className="w-full" loading={busy === 'verify'}
-              disabled={!checkedInPerson || !/^[A-Fa-f0-9]{10}$/.test(verificationCode.replace(/[\s-]/g, ''))}>
-              Vor Ort bestätigen
-            </Button>
-          </form>
+          <p className="mt-2 text-sm text-ink-700">
+            Schick {firstName(person.name)} den gemeinsamen Einladungslink. Nach der Namensauswahl öffnet sich
+            sofort die persönliche Wichtel-Seite. Du musst nichts bestätigen.
+          </p>
         )}
       </div>
 

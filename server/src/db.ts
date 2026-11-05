@@ -99,6 +99,10 @@ export const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX idx_claim_requests_participant ON claim_requests(participant_id);
   `,
+  `
+  DROP TABLE claim_requests;
+  ALTER TABLE participants DROP COLUMN verified_at;
+  `,
 ];
 
 export function openDatabase(file: string): DB {

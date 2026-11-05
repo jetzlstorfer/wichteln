@@ -13,7 +13,6 @@ import {
   newId,
   newInviteCode,
   newToken,
-  newVerificationCode,
   nowIso,
   viennaToday,
 } from './util';
@@ -21,7 +20,7 @@ import {
   LIMITS,
   type AdminView,
   type ChatMessage,
-  type ClaimView,
+  type ClaimResponse,
   type CreateGroupResponse,
   type GiftStatus,
   type GroupInfo,
@@ -56,7 +55,6 @@ interface ParticipantRow {
   token: string | null;
   token_source: 'self' | 'organizer' | null;
   claimed_at: string | null;
-  verified_at: string | null;
   reveal_consent_at: string | null;
   last_seen_at: string | null;
   reveal_seen_at: string | null;
@@ -145,7 +143,6 @@ export function createApp(db: DB, options: AppOptions = {}) {
     general: new RateLimiter(600, 5 * 60_000),
     create: new RateLimiter(10, 60 * 60_000),
     claim: new RateLimiter(30, 10 * 60_000),
-    verify: new RateLimiter(20, 10 * 60_000),
     chat: new RateLimiter(40, 10 * 60_000),
   };
 
@@ -183,7 +180,7 @@ export function createApp(db: DB, options: AppOptions = {}) {
 
   const getMe = (token: string): { me: ParticipantRow; group: GroupRow } => {
     if (!TOKEN_PATTERN.test(token)) throw new HttpError(404, 'not-found', 'Dieser persönliche Link ist nicht (mehr) gültig.');
-    const me = db.prepare('SELECT * FROM participants WHERE token = ? AND verified_at IS NOT NULL').get(token) as ParticipantRow | undefined;
+    const me = db.prepare('SELECT * FROM participants WHERE token = ?').get(token) as ParticipantRow | undefined;
     if (!me) throw new HttpError(404, 'not-found', 'Dieser persönliche Link ist nicht (mehr) gültig.');
     const group = db.prepare('SELECT * FROM groups WHERE id = ?').get(me.group_id) as unknown as GroupRow;
     return { me, group };
@@ -292,22 +289,10 @@ export function createApp(db: DB, options: AppOptions = {}) {
     const id = newId();
     const now = nowIso();
     db.prepare(
-      `INSERT INTO participants (id, group_id, name, token, token_source, claimed_at, verified_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(id, groupId, name, token, source, token ? now : null, token ? now : null, now);
+      `INSERT INTO participants (id, group_id, name, token, token_source, claimed_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(id, groupId, name, token, source, token ? now : null, now);
     return id;
-  };
-
-  const requestClaim = (person: ParticipantRow) => {
-    if (person.token) {
-      throw new HttpError(409, 'already-claimed', `„${person.name}“ ist bereits bestätigt. Verwende deinen gespeicherten persönlichen Link.`);
-    }
-    db.prepare('DELETE FROM claim_requests WHERE expires_at <= ?').run(nowIso());
-    const claimToken = newToken();
-    db.prepare(
-      'INSERT INTO claim_requests (token, participant_id, verification_code, expires_at) VALUES (?, ?, ?, ?)',
-    ).run(claimToken, person.id, newVerificationCode(), new Date(Date.now() + 30 * 60_000).toISOString());
-    return { claimToken };
   };
 
   // ----- middleware -----
@@ -523,29 +508,6 @@ export function createApp(db: DB, options: AppOptions = {}) {
     return c.json({ ok: true });
   });
 
-  app.post('/api/admin/:token/participants/:id/verify', async (c) => {
-    const { verificationCode } = await readJson(c, z.object({
-      verificationCode: z.string().transform((s) => s.replace(/[\s-]/g, '').toUpperCase()).pipe(z.string().regex(/^[A-F0-9]{10}$/)),
-    }));
-    transaction(db, () => {
-      const group = getGroupByAdmin(c.req.param('token'));
-      limit(c, limiters.verify, group.id);
-      ensureNotDrawn(group);
-      const person = participantOf(group, c.req.param('id'));
-      if (person.token) throw new HttpError(409, 'already-claimed', 'Diese Person ist bereits bestätigt. Ihr Link kann nicht ersetzt werden.');
-      const request = db.prepare(
-        'SELECT token FROM claim_requests WHERE participant_id = ? AND verification_code = ? AND expires_at > ?',
-      ).get(person.id, verificationCode, nowIso()) as { token: string } | undefined;
-      if (!request) throw new HttpError(400, 'invalid-code', 'Dieser Code passt nicht oder ist abgelaufen. Bitte direkt am Handy der Person vergleichen.');
-      db.prepare(
-        "UPDATE participants SET token = ?, token_source = 'self', claimed_at = ?, verified_at = ? WHERE id = ?",
-      ).run(request.token, nowIso(), nowIso(), person.id);
-      db.prepare('DELETE FROM claim_requests WHERE participant_id = ?').run(person.id);
-      touchGroup(group.id);
-    });
-    return c.json({ ok: true });
-  });
-
   app.post('/api/admin/:token/exclusions', async (c) => {
     const group = getGroupByAdmin(c.req.param('token'));
     ensureNotDrawn(group);
@@ -583,8 +545,8 @@ export function createApp(db: DB, options: AppOptions = {}) {
     const group = getGroupByAdmin(c.req.param('token'));
     ensureNotDrawn(group);
     const people = participantsOf(group.id);
-    if (people.some((p) => !p.token || !p.verified_at)) {
-      throw new HttpError(409, 'unverified-participants', 'Bitte zuerst alle Personen durch einen Code-Vergleich vor Ort bestätigen.');
+    if (people.some((p) => !p.token)) {
+      throw new HttpError(409, 'unclaimed-participants', 'Bitte warte, bis alle ihren Namen in der Einladung ausgewählt haben.');
     }
     const forbidden = new Set<string>();
     for (const p of people) if (p.partner_id) forbidden.add(pairKey(p.id, p.partner_id));
@@ -615,7 +577,6 @@ export function createApp(db: DB, options: AppOptions = {}) {
       const insert = db.prepare('INSERT INTO assignments (giver_id, group_id, receiver_id) VALUES (?, ?, ?)');
       for (const [giver, receiver] of result.pairs) insert.run(giver, group.id, receiver);
       db.prepare('UPDATE participants SET reveal_seen_at = NULL, reveal_consent_at = NULL WHERE group_id = ?').run(group.id);
-      db.prepare('DELETE FROM claim_requests WHERE participant_id IN (SELECT id FROM participants WHERE group_id = ?)').run(group.id);
       db.prepare('UPDATE groups SET drawn_at = ?, revealed_at = NULL, updated_at = ? WHERE id = ?').run(nowIso(), nowIso(), group.id);
     });
     return c.json({ ok: true, mutualPairs: result.mutualPairs });
@@ -720,9 +681,21 @@ export function createApp(db: DB, options: AppOptions = {}) {
   app.post('/api/invite/:code/claim', async (c) => {
     limit(c, limiters.claim);
     const { participantId } = await readJson(c, z.object({ participantId: z.string() }));
-    const group = getGroupByInvite(c.req.param('code'));
-    ensureNotDrawn(group);
-    return c.json(requestClaim(participantOf(group, participantId)), 201);
+    const result = transaction(db, () => {
+      const group = getGroupByInvite(c.req.param('code'));
+      ensureNotDrawn(group);
+      const person = participantOf(group, participantId);
+      const token = newToken();
+      const claimed = db.prepare(
+        "UPDATE participants SET token = ?, token_source = 'self', claimed_at = ? WHERE id = ? AND token IS NULL",
+      ).run(token, nowIso(), person.id);
+      if (Number(claimed.changes) === 0) {
+        throw new HttpError(409, 'already-claimed', `„${person.name}“ ist schon vergeben. Verwende deinen gespeicherten Link. Wenn du das nicht warst, sag bitte ${group.organizer_name} Bescheid.`);
+      }
+      touchGroup(group.id);
+      return { token } satisfies ClaimResponse;
+    });
+    return c.json(result, 201);
   });
 
   app.post('/api/invite/:code/join', async (c) => {
@@ -737,29 +710,12 @@ export function createApp(db: DB, options: AppOptions = {}) {
       if (nameTaken(db, group.id, name)) {
         throw new HttpError(409, 'name-taken', `„${name}“ gibt es schon. Bist du das? Dann wähle den Namen oben aus.`);
       }
-      const id = insertParticipant(group.id, name, null, null);
+      const token = newToken();
+      insertParticipant(group.id, name, token, 'self');
       touchGroup(group.id);
-      return requestClaim(participantOf(group, id));
+      return { token } satisfies ClaimResponse;
     });
     return c.json(request, 201);
-  });
-
-  app.get('/api/claim/:token', (c) => {
-    const token = c.req.param('token');
-    if (!TOKEN_PATTERN.test(token)) throw new HttpError(404, 'not-found', 'Diese Bestätigung ist nicht gültig.');
-    const verified = db.prepare('SELECT * FROM participants WHERE token = ? AND verified_at IS NOT NULL').get(token) as ParticipantRow | undefined;
-    if (verified) {
-      const group = db.prepare('SELECT * FROM groups WHERE id = ?').get(verified.group_id) as unknown as GroupRow;
-      return c.json({ status: 'verified', name: verified.name, groupName: group.name, inviteCode: group.invite_code } satisfies ClaimView);
-    }
-    const request = db.prepare(
-      `SELECT p.name, g.name AS groupName, g.invite_code AS inviteCode,
-              r.verification_code AS verificationCode, r.expires_at AS expiresAt
-       FROM claim_requests r JOIN participants p ON p.id = r.participant_id JOIN groups g ON g.id = p.group_id
-       WHERE r.token = ? AND r.expires_at > ? AND p.token IS NULL AND g.drawn_at IS NULL`,
-    ).get(token, nowIso()) as { name: string; groupName: string; inviteCode: string; verificationCode: string; expiresAt: string } | undefined;
-    if (!request) throw new HttpError(404, 'claim-expired', 'Diese Anfrage ist abgelaufen oder wurde durch eine andere Bestätigung ersetzt. Öffne die Einladung erneut oder frag die organisierende Person.');
-    return c.json({ status: 'pending', ...request } satisfies ClaimView);
   });
 
   // ----- participant -----

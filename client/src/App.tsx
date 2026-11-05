@@ -5,10 +5,9 @@ import { ErrorState, ToastProvider } from './components/ui';
 import { Home } from './pages/Home';
 import { CreateRound } from './pages/CreateRound';
 import { Invite } from './pages/Invite';
-import { VerifyClaim } from './pages/VerifyClaim';
+import { LegacyClaim } from './pages/LegacyClaim';
 import { Organizer } from './pages/organizer/Organizer';
 import { Participant } from './pages/participant/Participant';
-import { Privacy } from './pages/Privacy';
 import { NotFound } from './pages/NotFound';
 
 const TOKEN_ROUTE = /^\/(w|orga|einladung)\/([A-Za-z0-9_-]{8,64})/;
@@ -71,10 +70,9 @@ export function App() {
           <Route path="/" element={<Home />} />
           <Route path="/neu" element={<CreateRound />} />
           <Route path="/einladung/:code" element={<Invite />} />
-          <Route path="/bestaetigen/:token" element={<VerifyClaim />} />
+          <Route path="/bestaetigen/:token" element={<LegacyClaim />} />
           <Route path="/orga/:token" element={<Organizer />} />
           <Route path="/w/:token/:tab?" element={<Participant />} />
-          <Route path="/datenschutz" element={<Privacy />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </ErrorBoundary>

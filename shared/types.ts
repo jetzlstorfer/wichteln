@@ -111,17 +111,8 @@ export interface CreateGroupResponse {
 }
 
 export interface ClaimResponse {
-  claimToken: string;
+  token: string;
 }
-
-export type ClaimView = {
-  name: string;
-  groupName: string;
-  inviteCode: string;
-} & (
-  | { status: 'pending'; verificationCode: string; expiresAt: string }
-  | { status: 'verified' }
-);
 
 export interface ApiErrorBody {
   error: string;

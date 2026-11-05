@@ -163,7 +163,7 @@ export function CreateRound() {
           checked={allowSelfJoin}
           onChange={setAllowSelfJoin}
           label="Neue Namen dürfen sich selbst eintragen"
-          description="Neue Namen brauchen trotzdem deine persönliche Code-Prüfung vor Ort. Geht nur bis zur Auslosung."
+          description="Neue Personen bekommen direkt ihren persönlichen Link. Geht nur bis zur Auslosung."
         />
 
         <Button type="submit" className="w-full text-lg" loading={busy}>
