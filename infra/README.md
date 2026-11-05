@@ -24,7 +24,7 @@ There is no automatic deployment workflow or sample container.
 - A Consumption-only managed environment; no dedicated compute, VNet, private
   endpoints, NAT gateway or paid ingress gateway.
 - App: external HTTPS ingress, internal target port 8787, single active revision,
-  0.25 vCPU / 0.5 GiB per replica, minimum zero, configurable maximum (default 2,
+  0.25 vCPU / 0.5 GiB per replica, minimum 1, configurable maximum (default 2,
   allowed 1–10), HTTP scaling at 20 concurrent requests per replica.
 - Startup and readiness probes use `/api/health` to check Table access.
   Liveness uses `/api/live` so a storage outage does not trigger restart loops.

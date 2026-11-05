@@ -20,6 +20,10 @@ param publicUrl string = ''
 @maxValue(10)
 param maxReplicas int = 2
 
+@minValue(1)
+@maxValue(10)
+param minReplicas int = 1
+
 var image = startsWith(imageTag, 'sha256:')
   ? '${registryServer}/${imageRepository}@${imageTag}'
   : '${registryServer}/${imageRepository}:${imageTag}'
@@ -159,7 +163,7 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
         }
       ]
       scale: {
-        minReplicas: 0
+        minReplicas: minReplicas
         maxReplicas: maxReplicas
         rules: [
           {

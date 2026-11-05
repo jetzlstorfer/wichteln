@@ -25,6 +25,10 @@ param publicUrl string = ''
 @maxValue(10)
 param maxReplicas int = 2
 
+@minValue(1)
+@maxValue(10)
+param minReplicas int = 1
+
 @description('Opt in to potentially sensitive console/system logs and their ingestion charges. Off by default.')
 param enableLogAnalytics bool = false
 
@@ -183,6 +187,7 @@ module workloads 'workloads.bicep' = if (deployApp) {
     imageTag: imageTag
     publicUrl: publicUrl
     maxReplicas: maxReplicas
+    minReplicas: minReplicas
   }
   dependsOn: [
     tables

@@ -17,6 +17,7 @@ param(
   [string]$Prefix = 'wichteln',
   [string]$Repository = 'wichteln',
   [string]$NpmRegistry = 'https://packagefeedproxy.microsoft.io/npm/',
+  [int]$MinReplicas = 1,
   [int]$MaxReplicas = 2,
   [switch]$SkipBootstrap
 )
@@ -35,7 +36,7 @@ $account = Invoke-Az account show --subscription $Subscription --query '{name:na
 Write-Host "Subscription: $($account.name) as $($account.user)"
 
 $common = @('--resource-group', $ResourceGroup, '--subscription', $Subscription)
-$params = @("namePrefix=$Prefix", "location=$Location", "imageRepository=$Repository", "maxReplicas=$MaxReplicas")
+$params = @("namePrefix=$Prefix", "location=$Location", "imageRepository=$Repository", "minReplicas=$MinReplicas", "maxReplicas=$MaxReplicas")
 
 if (-not $SkipBootstrap) {
   Write-Host "Phase 1: resource group + infrastructure"
