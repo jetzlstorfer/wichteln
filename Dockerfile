@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- build: install all deps, build client + bundle server ----
-FROM node:24-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 # Override with an internal mirror if needed, e.g. --build-arg NPM_REGISTRY=https://my-proxy/npm/
 ARG NPM_REGISTRY=https://registry.npmjs.org/
@@ -11,7 +11,7 @@ COPY . .
 RUN npm run build
 
 # ---- runtime: the bundled server needs no node_modules ----
-FROM node:24-alpine
+FROM node:25-alpine
 ENV NODE_ENV=production \
     PORT=8787 \
     HOST=0.0.0.0 \
