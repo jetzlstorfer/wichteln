@@ -22,6 +22,7 @@ export const participantSchema = z.object({
   gift_status: z.number(), opened_doors: z.string(), created_at: z.string(),
   recipient_read_sequence: z.number().default(0), christkind_read_sequence: z.number().default(0),
   position: z.number().default(0),
+  link_reissued_at: z.string().nullable().default(null),
 });
 export const exclusionSchema = z.object({
   id: z.string(), group_id: z.string(), giver_id: z.string(), receiver_id: z.string(),

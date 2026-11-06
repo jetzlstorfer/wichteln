@@ -76,7 +76,7 @@ function addParticipant(round: Round, name: string, token: string | null): Parti
     claimed_at: token ? now : null, reveal_consent_at: null, last_seen_at: null, reveal_seen_at: null,
     partner_id: null, about: '', gift_status: 0, opened_doors: '[]', created_at: now,
     recipient_read_sequence: 0, christkind_read_sequence: 0,
-    position: Math.max(-1, ...round.participants.map((p) => p.position)) + 1,
+    position: Math.max(-1, ...round.participants.map((p) => p.position)) + 1, link_reissued_at: null,
   };
   round.participants.push(person);
   return person;
@@ -210,7 +210,7 @@ export function createApp(storage: Storage, options: AppOptions = {}) {
       participants: round.participants.map((p) => ({
         id: p.id, name: p.name, claimed: Boolean(p.token), lastSeenAt: p.last_seen_at, revealSeen: Boolean(p.reveal_seen_at),
         partnerId: p.partner_id, wishCount: wishesOf(round, p.id).length, hasAbout: p.about.trim().length > 0,
-        giftStatus: p.gift_status as GiftStatus, isOrganizer: p.id === g.organizer_participant_id,
+        giftStatus: p.gift_status as GiftStatus, isOrganizer: p.id === g.organizer_participant_id, linkReissuedAt: p.link_reissued_at,
       })),
       exclusions: round.exclusions.map((e) => ({ id: e.id, giverId: e.giver_id, receiverId: e.receiver_id, reason: e.reason })),
       revealConsentCount: round.participants.filter((p) => p.reveal_consent_at).length, today: viennaToday(),
@@ -275,6 +275,20 @@ export function createApp(storage: Storage, options: AppOptions = {}) {
       round.wishes = round.wishes.filter((w) => w.participant_id !== person.id);
     });
     return c.json({ ok: true });
+  });
+  /** Replaces a lost personal link. The old link stops working, which makes silent peeking noticeable. */
+  app.post('/api/admin/:token/participants/:id/reissue-link', async (c) => {
+    await limit(c, 'claim');
+    const result = await mutate('admin', c.req.param('token'), (round) => {
+      const person = participantOf(round, c.req.param('id'));
+      if (!person.token) {
+        throw new HttpError(409, 'not-claimed', `${person.name} hat noch keinen persönlichen Link. Schick den Einladungslink, damit ${person.name} den eigenen Namen auswählen kann.`);
+      }
+      person.token = newToken(); person.token_source = 'organizer';
+      person.link_reissued_at = nowIso(); person.reveal_consent_at = null;
+      return { token: person.token } satisfies ClaimResponse;
+    });
+    return c.json(result, 201);
   });
   app.post('/api/admin/:token/exclusions', async (c) => {
     const body = await readJson(c, z.object({
@@ -395,7 +409,7 @@ export function createApp(storage: Storage, options: AppOptions = {}) {
     const result = await mutate('invite', c.req.param('code'), (round) => {
       ensureNotDrawn(round);
       const person = participantOf(round, participantId);
-      if (person.token) throw new HttpError(409, 'already-claimed', `„${person.name}“ ist schon vergeben. Verwende deinen gespeicherten Link. Wenn du das nicht warst, sag bitte ${round.group.organizer_name} Bescheid.`);
+      if (person.token) throw new HttpError(409, 'already-claimed', `„${person.name}“ ist schon vergeben. Verwende deinen gespeicherten Link oder bitte ${round.group.organizer_name} um einen neuen. Wenn du das nicht warst, sag bitte ${round.group.organizer_name} Bescheid.`);
       person.token = newToken(); person.token_source = 'self'; person.claimed_at = nowIso();
       return { token: person.token } satisfies ClaimResponse;
     });
@@ -431,6 +445,7 @@ export function createApp(storage: Storage, options: AppOptions = {}) {
         id: me.id, name: me.name, about: me.about, giftStatus: me.gift_status as GiftStatus,
         openedDoors: JSON.parse(me.opened_doors) as number[], wishes: wishesOf(round, me.id),
         isOrganizer: me.id === round.group.organizer_participant_id, revealSeen: Boolean(me.reveal_seen_at), revealConsent: Boolean(me.reveal_consent_at),
+        linkReissuedAt: me.link_reissued_at,
       },
       group: groupInfo(round),
       participants: round.participants.map((p) => ({ id: p.id, name: p.name, giftStatus: p.gift_status as GiftStatus, isMe: p.id === me.id })),
@@ -482,7 +497,12 @@ export function createApp(storage: Storage, options: AppOptions = {}) {
     await mutate('personal', c.req.param('token'), (round) => {
       if (!round.group.drawn_at) throw new HttpError(409, 'not-drawn', 'Es wurde noch nicht ausgelost.');
       if (round.group.revealed_at) throw new HttpError(409, 'already-revealed', 'Die Auflösung wurde bereits veröffentlicht.');
-      meOf(round, c.req.param('token')).reveal_consent_at = consent ? nowIso() : null;
+      const me = meOf(round, c.req.param('token'));
+      // The organizer has seen a re-issued link, so consent from it cannot prove the person agreed.
+      if (consent && me.link_reissued_at) {
+        throw new HttpError(409, 'reissued-link', 'Mit einem neu ausgestellten Link ist keine Zustimmung zur Auflösung möglich.');
+      }
+      me.reveal_consent_at = consent ? nowIso() : null;
     });
     return c.json({ ok: true });
   });

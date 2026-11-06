@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Eye, EyeOff, Gift, Heart, ShieldCheck, Plus, UserCheck, UserRound, Users } from 'lucide-react';
+import { Eye, EyeOff, Gift, Heart, KeyRound, ShieldCheck, Plus, UserCheck, UserRound, Users } from 'lucide-react';
 import { LIMITS, type AdminParticipant, type AdminView } from '../../../../shared/types';
+import { ShareButtons } from '../../components/ShareButtons';
 import { Button, Initials, Sheet } from '../../components/ui';
 import { api } from '../../lib/api';
-import { pluralPeople, relativeTime } from '../../lib/format';
+import { formatTimestampDay, pluralPeople, relativeTime } from '../../lib/format';
 import { firstName } from '../../lib/reveal';
+import { absoluteUrl } from '../../lib/share';
+import { findRound, forgetRound, rememberRound } from '../../lib/storage';
 import { Section, TwoStepButton, useAction } from './shared';
 
 export function PeopleSection({ view, token, reload }: { view: AdminView; token: string; reload: () => Promise<unknown> }) {
@@ -155,10 +158,12 @@ function PersonSheet({
 }) {
   const { busy, run } = useAction(reload);
   const [name, setName] = useState('');
+  const [newLink, setNewLink] = useState<string | null>(null);
   const personId = person?.id;
 
   useEffect(() => {
     setName(person?.name ?? '');
+    setNewLink(null);
     // Only reset when a different person is opened, not on background refreshes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personId]);
@@ -173,6 +178,22 @@ function PersonSheet({
       await run('rename', () => api.admin.updateParticipant(token, person.id, { name: name.trim() }), 'Name geändert');
     }
   };
+
+  const reissue = () =>
+    run(
+      'reissue',
+      async () => {
+        const res = await api.admin.reissueLink(token, person.id);
+        if (person.isOrganizer) {
+          const previous = findRound('orga', token)?.selfToken;
+          if (previous) forgetRound('w', previous);
+          rememberRound({ kind: 'orga', token, groupName: view.group.name, selfToken: res.token });
+        }
+        setNewLink(absoluteUrl(`/w/${res.token}`));
+      },
+      'Neuer Link ausgestellt',
+    );
+  const first = firstName(person.name);
 
   return (
     <Sheet open onClose={onClose} title={person.name} image={<Initials name={person.name} className="mb-3 !size-14 !text-lg" />}>
@@ -214,11 +235,48 @@ function PersonSheet({
           <ShieldCheck className="size-4 text-gold-600" /> Persönlicher Link
         </h3>
         {person.claimed ? (
-          <p className="mt-2 text-sm text-ink-700">
-            {firstName(person.name)} ist dabei. Der persönliche Link gehört nur dieser Person.
-            Du kannst ihn weder anzeigen noch ersetzen. Bei Verlust hilft nur eine gespeicherte Kopie;
-            ohne Kopie braucht ihr eine neue Runde.
-          </p>
+          <>
+            <p className="mt-2 text-sm text-ink-700">
+              {first} ist dabei. Den persönlichen Link kennt nur {person.isOrganizer ? 'du' : first} – du kannst ihn
+              nicht abrufen. Ist er verloren, stell einen neuen aus: Der alte Link funktioniert dann sofort nicht mehr
+              {person.isOrganizer ? '.' : ` und ${first} sieht auf der eigenen Seite einen Hinweis darauf.`}
+            </p>
+            {person.linkReissuedAt ? (
+              <p className="mt-2 text-sm text-ink-500">Zuletzt neu ausgestellt am {formatTimestampDay(person.linkReissuedAt)}.</p>
+            ) : null}
+            {newLink ? (
+              <div className="mt-3 space-y-2">
+                <p className="flex items-center gap-1.5 text-sm font-bold text-fir-600">
+                  <KeyRound className="size-4" />
+                  {person.isOrganizer ? 'Dein neuer Link – speichere ihn gut:' : `Schick ${first} jetzt den neuen Link:`}
+                </p>
+                <ShareButtons
+                  url={newLink}
+                  title={view.group.name}
+                  text={
+                    person.isOrganizer
+                      ? `Mein neuer Wichtel-Link für „${view.group.name}“ (nur für mich):`
+                      : `Hallo ${first}! Hier ist dein neuer persönlicher Wichtel-Link für „${view.group.name}“. Der alte funktioniert nicht mehr. Bitte nur für dich speichern und nicht weitergeben:`
+                  }
+                />
+                {person.isOrganizer ? null : (
+                  <p className="text-xs text-ink-500">
+                    Öffne den Link bitte nicht selbst, sonst siehst du, wen {first} beschenkt. Er wird nur jetzt angezeigt.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="mt-3">
+                <TwoStepButton
+                  onConfirm={reissue}
+                  loading={busy === 'reissue'}
+                  confirmLabel="Alten Link wirklich ungültig machen?"
+                >
+                  <KeyRound className="size-4" /> Neuen Link ausstellen
+                </TwoStepButton>
+              </div>
+            )}
+          </>
         ) : drawn ? (
           <p className="mt-2 text-sm text-berry-600">
             Diese ältere Runde enthält noch nicht vergebene Namen. Setze zuerst die Auslosung zurück,

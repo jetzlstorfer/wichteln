@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Copy, Download, KeyRound, Share, Share2, X } from 'lucide-react';
+import { Copy, Download, KeyRound, RefreshCw, Share, Share2, X } from 'lucide-react';
 import { Button, useToast } from './ui';
+import { formatTimestampDay } from '../lib/format';
 import { copyText, shareOrCopy } from '../lib/share';
 import { flag, setFlag } from '../lib/storage';
 import { canPromptInstall, isIos, isStandalone, onInstallAvailabilityChange, promptInstall } from '../lib/install';
@@ -65,6 +66,41 @@ export function SaveLinkCard({
         <Button size="sm" variant="outline" onClick={copy}>
           <Copy className="size-4" /> Kopieren
         </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Tells people their link was replaced, so an unrequested replacement does not go unnoticed. */
+export function ReissuedLinkNotice({ token, reissuedAt, organizerName }: { token: string; reissuedAt: string; organizerName: string }) {
+  // Stored per device and per link: dismissing it elsewhere does not hide it on the person's own phone.
+  const flagKey = `w-reissued-${token.slice(0, 10)}`;
+  const [hidden, setHidden] = useState(() => flag(flagKey));
+  if (hidden) return null;
+  return (
+    <div role="status" className="card relative animate-fade-up border-berry-400 bg-berry-500/10">
+      <button
+        type="button"
+        className="icon-btn absolute top-2 right-2"
+        aria-label="Hinweis ausblenden"
+        onClick={() => {
+          setFlag(flagKey);
+          setHidden(true);
+        }}
+      >
+        <X className="size-5" />
+      </button>
+      <div className="flex items-start gap-3 pr-8">
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-berry-500/20 text-berry-600">
+          <RefreshCw className="size-5" />
+        </span>
+        <div>
+          <h2 className="text-lg font-bold">Dein Link wurde neu ausgestellt</h2>
+          <p className="mt-1 text-sm text-ink-700">
+            {organizerName} hat dir am {formatTimestampDay(reissuedAt)} einen neuen persönlichen Link ausgestellt. Dein alter
+            Link funktioniert nicht mehr. Hast du nicht darum gebeten? Dann sprich bitte mit {organizerName}.
+          </p>
+        </div>
       </div>
     </div>
   );
