@@ -213,10 +213,13 @@ pushes a uniquely tagged image, resolves its digest, and deploys
 `workloads.bicep` to update **both** the app and scheduled job. It keeps at least
 one replica, preserves the existing runtime identity, environment, public URL,
 tags and maximum replica setting, and checks readiness, image digests and HTTP
-health. Main runs are serialized without cancelling an in-progress deployment;
-up to 100 pending runs are queued rather than replaced (additional runs are
-cancelled when the queue is full). PR runs are also queued per PR. Manual runs
-deploy only when the selected branch is `main`.
+health. Main runs are serialized without cancelling an in-progress deployment.
+GitHub's default single-pending-run concurrency queue keeps only the newest
+waiting run per branch: a new run replaces an older pending run before its jobs
+start. New PR commits also cancel in-progress checks for that same PR; different
+PRs remain independent. Workflow entries for cancelled runs still appear in
+Actions, and an already-running main release finishes even if a newer commit
+arrives. Manual runs deploy only when the selected branch is `main`.
 
 The workflow does not bootstrap storage, change role assignments, migrate data,
 or run cleanup manually. Changes to `main.bicep` still require an explicit

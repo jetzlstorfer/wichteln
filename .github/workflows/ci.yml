@@ -15,7 +15,7 @@ defaults:
 
 concurrency:
   group: ci-${{ github.ref }}
-  queue: max
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   application:
@@ -47,11 +47,8 @@ jobs:
           persist-credentials: false
       - name: Lint GitHub Actions workflow
         run: |
-          # actionlint does not yet recognize GitHub's concurrency queue field.
-          grep -A2 '^concurrency:$' .github/workflows/ci.yml | grep -Fxq '  queue: max'
           docker run --rm --volume "$PWD:/repo:ro" --workdir /repo \
             rhysd/actionlint:1.7.12 \
-            -ignore 'unexpected key "queue" for "concurrency" section' \
             .github/workflows/ci.yml
       - name: Compile Bicep templates and parameters
         shell: pwsh
