@@ -140,9 +140,7 @@ export function Home() {
 
           <section className="card mt-10 text-center">
             <p className="font-hand text-3xl leading-tight text-berry-600">„Das Christkind bringt die Packerl – du hilfst ihm dabei.“</p>
-            <p className="mt-2 text-sm text-ink-500">
-              Bei uns in Österreich kommt am Heiligen Abend nicht der Weihnachtsmann, sondern das Christkind. Beim Wichteln
-              darf jede:r einmal Christkind sein.
+            <p className="mt-2 text-sm text-ink-500">Beim Wichteln darf jede:r einmal Christkind sein.
             </p>
           </section>
 
