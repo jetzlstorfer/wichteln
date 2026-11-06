@@ -9,7 +9,7 @@ import { WichtelTab } from './participant/WichtelTab';
 const participant: MeView = {
   me: {
     id: 'alex', name: 'Alex', about: '', giftStatus: 3, openedDoors: [], wishes: [],
-    isOrganizer: true, revealSeen: true, revealConsent: false,
+    isOrganizer: true, revealSeen: true, revealConsent: false, linkReissuedAt: null,
   },
   group: {
     name: 'Familienrunde', organizerName: 'Alex', budget: 30, exchangeDate: '2026-12-24',
@@ -33,7 +33,7 @@ const organizer: AdminView = {
   },
   participants: participant.participants.map((p) => ({
     id: p.id, name: p.name, claimed: true, lastSeenAt: null, revealSeen: true,
-    partnerId: null, wishCount: 0, hasAbout: false, giftStatus: p.giftStatus, isOrganizer: p.isMe,
+    partnerId: null, wishCount: 0, hasAbout: false, giftStatus: p.giftStatus, isOrganizer: p.isMe, linkReissuedAt: null,
   })),
   exclusions: [],
   revealConsentCount: 0,

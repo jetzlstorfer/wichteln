@@ -11,7 +11,7 @@ Eine warme, familienfreundliche Wichtel-App (Secret Santa auf Österreichisch) �
 - **Paare** festlegen (die beschenken sich nie gegenseitig), **eigene Regeln** („Opa soll nicht Oma …“) und **„Wie im Vorjahr? Lieber nicht!“**
 - Faire Auslosung: jede gültige Zuteilung ist gleich wahrscheinlich; ist eine Auslosung unmöglich, sagt die App warum
 - Sehen, wer sich gemeldet und wer schon nachgeschaut hat – ohne die Paarungen zu sehen
-- Erst auslosen, wenn **alle ihren Namen ausgewählt** haben. Vergebene Namen bleiben gesperrt; persönliche Links können von der organisierenden Person weder angezeigt noch neu ausgestellt werden
+- Erst auslosen, wenn **alle ihren Namen ausgewählt** haben. Vergebene Namen bleiben gesperrt; persönliche Links kann die organisierende Person nie anzeigen. Geht ein Link verloren, kann sie ihn aber **neu ausstellen**: Der alte Link funktioniert dann sofort nicht mehr, und die Person sieht auf ihrer Seite einen Hinweis darauf
 - Auslosung bei Bedarf zurücksetzen
 
 **Für alle in der Familie**
@@ -31,7 +31,7 @@ Eine warme, familienfreundliche Wichtel-App (Secret Santa auf Österreichisch) �
 Diese Funktionen sind bewusst aus der aktuellen Oberfläche entfernt:
 
 - **Packerl-Fortschritt**: freiwillig „Idee → Besorgt → Eingepackt“ abhaken, mit einer gemeinsamen Übersicht, wie viele Packerln fertig sind.
-- **„Nach der Bescherung“**: eine gemeinsame Auflösung, wer wen beschenkt hat. Falls die Funktion zurückkommt, muss weiterhin jede Person auf ihrer eigenen Seite zustimmen, bevor die Organisator:in die Paarungen veröffentlicht. Bis dahin bleibt die Auslosung geheim; eine Veröffentlichung lässt sich nicht zurücknehmen.
+- **„Nach der Bescherung“**: eine gemeinsame Auflösung, wer wen beschenkt hat. Falls die Funktion zurückkommt, muss weiterhin jede Person auf ihrer eigenen Seite zustimmen, bevor die Organisator:in die Paarungen veröffentlicht. Von einem neu ausgestellten Link aus ist keine Zustimmung möglich, weil die Organisator:in diesen Link gesehen hat. Bis dahin bleibt die Auslosung geheim; eine Veröffentlichung lässt sich nicht zurücknehmen.
 - **„Nächstes Jahr wieder wichteln“**: Personen, Paare und Regeln übernehmen und die Vorjahres-Paarungen ausschließen. Diese Übernahme darf erst nach einer gemeinsam freigegebenen Auflösung möglich sein, damit sichtbare Ausschlussregeln keine noch geheimen Zuteilungen verraten.
 
 Vorhandene Daten und die abgesicherten API-Endpunkte bleiben kompatibel. Bereits veröffentlichte Auflösungen aus Altrunden bleiben lesbar; nur für solche Runden bleibt auch die Übernahme ins nächste Jahr verfügbar.
@@ -143,14 +143,14 @@ Die App sollte im Internet **nur per HTTPS** erreichbar sein. `TRUST_PROXY=true`
 
 - Zufällige, lange Geheimlinks statt Passwörtern (Organisator 192 Bit, persönliche Links 144 Bit)
 - Die erste Namensauswahl vergibt den Zugang atomar: Auch bei gleichzeitigen Anfragen bekommt nur eine Person einen Link. Persönliche Tokens bestehen aus 18 kryptografisch zufälligen Bytes (144 Bit), nicht aus Namen oder fortlaufenden IDs
-- Persönliche Links werden nur beim Erstellen bzw. Auswählen ausgegeben, nicht in der Einladung oder der Organisator-Ansicht. Es gibt keine administrativen Link- oder Freigabe-Endpunkte – auch nicht nach der Auslosung
-- Persönliche Links selbst sichern. Ohne vorhandene Kopie gibt es bewusst keinen Administrator-Reset. Bei kompromittierten Links die Runde löschen und neu beginnen
-- Die erhaltenen Auflösungs-Endpunkte brauchen weiterhin die Zustimmung **aller** persönlichen Zugänge; ein Zurücksetzen der Auslosung löscht auch diese Zustimmungen. Die Übernahme ins nächste Jahr ist vorher gesperrt, weil Vorjahres-Ausschlüsse sonst die geheime Auslosung verraten würden
+- Persönliche Links werden nur beim Erstellen bzw. Auswählen ausgegeben, nicht in der Einladung oder der Organisator-Ansicht. Der einzige administrative Link-Endpunkt stellt für eine bereits angemeldete Person einen **neuen** Link aus (`POST /api/admin/:token/participants/:id/reissue-link`); bestehende Links lassen sich nicht abrufen
+- Persönliche Links selbst sichern. Bei Verlust stellt die Organisator:in einen neuen Link aus: Der alte wird sofort ungültig, Wünsche und Zuteilung bleiben erhalten. Das ist bewusst sichtbar statt heimlich – die Person sieht auf ihrer Seite, wann ihr Link neu ausgestellt wurde, und die Organisator-Ansicht zeigt es ebenfalls. Bei kompromittierten Links ebenfalls einen neuen Link ausstellen
+- Die erhaltenen Auflösungs-Endpunkte brauchen weiterhin die Zustimmung **aller** persönlichen Zugänge; ein Zurücksetzen der Auslosung oder ein neu ausgestellter Link löscht die jeweilige Zustimmung, und von neu ausgestellten Links aus ist keine Zustimmung möglich. Die Übernahme ins nächste Jahr ist vorher gesperrt, weil Vorjahres-Ausschlüsse sonst die geheime Auslosung verraten würden
 - Strenge Content-Security-Policy, `no-referrer`, kein Einbetten in fremde Seiten
 - Rate-Limits für Erstellen, Einlösen von Einladungen und Nachrichten
 - Eingaben werden serverseitig mit zod geprüft und begrenzt
 
-**Vertrauensgrenze:** Die Einladung nur in der vertrauten Familie teilen. Wer sie kennt, kann einen noch freien Namen auswählen – die App prüft die Identität bewusst nicht. Lange persönliche Links schützen vor Erraten, nicht davor, dass jemand zuerst einen fremden Namen beansprucht. Bei einer falschen Auswahl vor der Auslosung die betroffene Person nach Rücksprache entfernen und neu eintragen (ihr bisheriger Wunschzettel wird dabei gelöscht). Nach der Auslosung bleibt ein Zurücksetzen nötig; bereits bekannte Zuteilungen werden dadurch nicht wieder geheim. Die Datenbank enthält die Zuteilungen; dies ist keine Ende-zu-Ende-Verschlüsselung und schützt nicht vor dem Serverbetreiber. Persönliche URLs auch aus Proxy-/Zugriffslogs fernhalten.
+**Vertrauensgrenze:** Die Einladung nur in der vertrauten Familie teilen. Wer sie kennt, kann einen noch freien Namen auswählen – die App prüft die Identität bewusst nicht. Lange persönliche Links schützen vor Erraten, nicht davor, dass jemand zuerst einen fremden Namen beansprucht. Bei einer falschen Auswahl vor der Auslosung die betroffene Person nach Rücksprache entfernen und neu eintragen (ihr bisheriger Wunschzettel wird dabei gelöscht). Nach der Auslosung bleibt ein Zurücksetzen nötig; bereits bekannte Zuteilungen werden dadurch nicht wieder geheim. Wer einen Link neu ausstellt, könnte ihn selbst öffnen und die Zuteilung dieser Person sehen – die App verhindert das nicht, macht es aber sichtbar: Der alte Link der Person hört auf zu funktionieren, und ihre Seite zeigt einen Hinweis. Die Datenbank enthält die Zuteilungen; dies ist keine Ende-zu-Ende-Verschlüsselung und schützt nicht vor dem Serverbetreiber. Persönliche URLs auch aus Proxy-/Zugriffslogs fernhalten.
 
 ### Update von der Version mit Bestätigungscodes
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { CalendarHeart, ExternalLink, Eye, EyeOff, MessageCircleQuestion, PartyPopper, ScrollText, Sparkles, Wallet } from 'lucide-react';
 import type { MeView, Wish } from '../../../../shared/types';
-import { InstallHint, SaveLinkCard } from '../../components/LinkHints';
+import { InstallHint, ReissuedLinkNotice, SaveLinkCard } from '../../components/LinkHints';
 import { RevealChainList } from '../../components/RevealChainList';
 import { Initials } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -40,6 +40,10 @@ export function WichtelTab({ data, token, update }: TabProps) {
         </div>
         {days !== null ? <p className="col-span-2 text-center font-hand text-2xl text-gold-200">{sleepsText(days)}</p> : null}
       </div>
+
+      {me.linkReissuedAt && !me.isOrganizer ? (
+        <ReissuedLinkNotice token={token} reissuedAt={me.linkReissuedAt} organizerName={group.organizerName} />
+      ) : null}
 
       <SaveLinkCard
         url={absoluteUrl(`/w/${token}`)}

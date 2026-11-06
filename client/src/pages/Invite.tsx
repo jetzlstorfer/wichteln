@@ -134,7 +134,7 @@ export function Invite() {
         <p className="mt-1 text-ink-700">
           {open.length > 0
             ? 'Tipp auf deinen Namen und du bekommst sofort deinen geheimen Wichtel-Link.'
-            : 'Alle Namen sind schon vergeben. Verwende deinen gespeicherten persönlichen Link.'}
+            : `Alle Namen sind schon vergeben. Verwende deinen gespeicherten persönlichen Link oder bitte ${group.organizerName} um einen neuen.`}
         </p>
         <ul className="mt-4 grid grid-cols-2 gap-2">
           {participants.map((p) => (
@@ -206,7 +206,8 @@ export function Invite() {
       >
         <p>
           Wähle bitte nur deinen eigenen Namen. Danach ist er vergeben und du bekommst sofort deinen persönlichen Link.
-          Speichere ihn gut und gib ihn nicht weiter – auch {group.organizerName} kann ihn nicht abrufen oder ersetzen.
+          Speichere ihn gut und gib ihn nicht weiter – {group.organizerName} kann ihn nicht abrufen. Geht er verloren,
+          kann {group.organizerName} dir einen neuen ausstellen; der alte funktioniert dann nicht mehr.
         </p>
       </ConfirmSheet>
     </main>

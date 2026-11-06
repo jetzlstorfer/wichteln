@@ -67,6 +67,7 @@ export const api = {
     updateParticipant: (t: string, id: string, body: { name?: string; partnerId?: string | null }) =>
       request<{ ok: true }>('PATCH', `/admin/${e(t)}/participants/${e(id)}`, body),
     removeParticipant: (t: string, id: string) => request<{ ok: true }>('DELETE', `/admin/${e(t)}/participants/${e(id)}`),
+    reissueLink: (t: string, id: string) => request<ClaimResponse>('POST', `/admin/${e(t)}/participants/${e(id)}/reissue-link`),
     addExclusion: (t: string, body: { giverId: string; receiverId: string; both: boolean }) =>
       request<{ ok: true }>('POST', `/admin/${e(t)}/exclusions`, body),
     removeExclusion: (t: string, id: string) => request<{ ok: true }>('DELETE', `/admin/${e(t)}/exclusions/${e(id)}`),

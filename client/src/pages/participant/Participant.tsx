@@ -45,7 +45,7 @@ export function Participant() {
         <ErrorState
           message={
             error?.status === 404
-              ? 'Dieser Link ist nicht mehr gültig. Verwende deine gespeicherte Kopie. Wenn du noch keinen persönlichen Link hast, öffne die Einladung und wähle deinen eigenen Namen.'
+              ? 'Dieser Link ist nicht mehr gültig. Verwende deine gespeicherte Kopie oder bitte die Person, die eure Runde organisiert, um einen neuen Link. Wenn du noch keinen persönlichen Link hast, öffne die Einladung und wähle deinen eigenen Namen.'
               : (error?.message ?? 'Da ist etwas schiefgegangen.')
           }
           action={

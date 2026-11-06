@@ -39,6 +39,8 @@ export interface AdminParticipant {
   hasAbout: boolean;
   giftStatus: GiftStatus;
   isOrganizer: boolean;
+  /** When the organizer last replaced this person's personal link. */
+  linkReissuedAt: string | null;
 }
 
 export interface AdminExclusion {
@@ -81,6 +83,8 @@ export interface MeView {
     isOrganizer: boolean;
     revealSeen: boolean;
     revealConsent: boolean;
+    /** When the organizer last replaced this link; the previous link no longer works. */
+    linkReissuedAt: string | null;
   };
   group: GroupInfo;
   participants: { id: string; name: string; giftStatus: GiftStatus; isMe: boolean }[];

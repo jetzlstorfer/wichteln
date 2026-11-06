@@ -2,7 +2,7 @@ import { TableClient, TableServiceClient } from '@azure/data-tables';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app';
 import { runMaintenance } from '../src/maintenance';
-import { emptyRound, MemoryStorage, TableStorage, type Round, type Storage } from '../src/storage';
+import { emptyRound, MemoryStorage, participantSchema, TableStorage, type Round, type Storage } from '../src/storage';
 import { newAdminToken, newId, newInviteCode, newToken } from '../src/util';
 import type { CreateGroupResponse, AdminView, MeView } from '../../shared/types';
 
@@ -48,7 +48,7 @@ function family(size = 3): Round {
       id: newId(), group_id: round.group.id, name: `Person ${i}`, token: newToken(), token_source: 'self',
       claimed_at: '2026-11-05', last_seen_at: null, reveal_consent_at: null, reveal_seen_at: null,
       partner_id: null, about: 'About me', gift_status: 0, opened_doors: '[]', created_at: '2026-11-05',
-      recipient_read_sequence: 0, christkind_read_sequence: 0, position: i,
+      recipient_read_sequence: 0, christkind_read_sequence: 0, position: i, link_reissued_at: null,
     });
   }
   round.group.organizer_participant_id = round.participants[0].id;
@@ -229,5 +229,32 @@ describe('storage contract', () => {
     const view = await (await request('GET', `/api/admin/${created.adminToken}`)).json() as AdminView;
     expect(view.group.name).toBe('Family');
     expect(view.participants).toHaveLength(1);
+  });
+
+  it('keeps people saved before links could be re-issued working', async () => {
+    const round = family();
+    const legacy = round.participants.map((p) => {
+      const copy: Partial<typeof p> = { ...p };
+      delete copy.link_reissued_at;
+      return copy;
+    });
+    expect(legacy.map((p) => participantSchema.parse(p).link_reissued_at)).toEqual([null, null, null]);
+    await storage.create(round);
+    if (storage instanceof TableStorage) {
+      for (const p of legacy) {
+        await storage.roundTable.updateEntity({ partitionKey: round.group.id, rowKey: `p:${p.id}`, json: JSON.stringify(p) }, 'Merge');
+      }
+    }
+    const admin = `/api/admin/${round.group.admin_token}`;
+    const view = await (await request('GET', admin)).json() as AdminView;
+    expect(view.participants.map((p) => p.linkReissuedAt)).toEqual([null, null, null]);
+    const old = round.participants[1].token!;
+    expect((await (await request('GET', `/api/me/${old}`)).json() as MeView).me.linkReissuedAt).toBeNull();
+    const reissued = await request('POST', `${admin}/participants/${round.participants[1].id}/reissue-link`);
+    expect(reissued.status).toBe(201);
+    const { token } = await reissued.json() as { token: string };
+    expect((await request('GET', `/api/me/${old}`)).status).toBe(404);
+    expect((await (await request('GET', `/api/me/${token}`)).json() as MeView).me.linkReissuedAt).toBeTruthy();
+    expect((await request('GET', `/api/me/${round.participants[2].token}`)).status).toBe(200);
   });
 });

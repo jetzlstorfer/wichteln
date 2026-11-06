@@ -237,7 +237,7 @@ describe('API', () => {
     for (const result of results.filter((r) => r.status === 409)) expect(result.data.token).toBeUndefined();
   });
 
-  it('removes all organizer link minting and reset paths before and after the draw', async () => {
+  it('never lets the organizer read or reset links, only replace them through reissue-link', async () => {
     const { admin, view, id } = await setupFamily();
     const tokens = await claimAll(view);
     expect(new Set(tokens.values()).size).toBe(tokens.size);
@@ -257,6 +257,49 @@ describe('API', () => {
     expect((await call('POST', `${admin}/draw/reset`)).status).toBe(200);
     expect((await call('POST', `${invite}/claim`, { participantId: id('Oma') })).data.error).toBe('already-claimed');
     expect((await call<MeView>('GET', `/api/me/${tokens.get('Oma')}`)).data.recipient).toBeNull();
+  });
+
+  it('lets the organizer replace a lost link, invalidating the old one and telling the person', async () => {
+    const { admin, view, id, organizerToken } = await setupFamily();
+    const invite = `/api/invite/${view.group.inviteCode}`;
+    const unclaimed = await call('POST', `${admin}/participants/${id('Oma')}/reissue-link`);
+    expect(unclaimed.status).toBe(409);
+    expect(unclaimed.data.error).toBe('not-claimed');
+    expect(unclaimed.data.token).toBeUndefined();
+
+    const tokens = await claimAll(view);
+    const old = tokens.get('Oma')!;
+    expect((await call('POST', `/api/me/${old}/wishes`, { text: 'Ein Buch' })).status).toBe(201);
+    expect((await call('POST', `${admin}/draw`)).status).toBe(200);
+    const before = (await call<MeView>('GET', `/api/me/${old}`)).data;
+    expect(before.me.linkReissuedAt).toBeNull();
+    expect((await call('POST', `/api/me/${old}/reveal-consent`, { consent: true })).status).toBe(200);
+
+    expect((await call('POST', `/api/admin/not-a-real-admin-token/participants/${id('Oma')}/reissue-link`)).status).toBe(404);
+    expect((await call('POST', `${admin}/participants/missing/reissue-link`)).status).toBe(404);
+    const reissued = await call<ClaimResponse>('POST', `${admin}/participants/${id('Oma')}/reissue-link`);
+    expect(reissued.status).toBe(201);
+    const fresh = reissued.data.token;
+    expect(fresh).toMatch(/^[A-Za-z0-9_-]{24}$/);
+    expect(fresh).not.toBe(old);
+
+    expect((await call('GET', `/api/me/${old}`)).status).toBe(404);
+    const after = (await call<MeView>('GET', `/api/me/${fresh}`)).data;
+    expect(after.me.name).toBe('Oma');
+    expect(after.me.linkReissuedAt).toBeTruthy();
+    expect(after.me.wishes[0].text).toBe('Ein Buch');
+    expect(after.me.revealConsent).toBe(false);
+    expect(after.recipient?.name).toBe(before.recipient?.name);
+    expect((await call('POST', `/api/me/${fresh}/reveal-consent`, { consent: true })).data.error).toBe('reissued-link');
+    expect((await call('POST', `/api/me/${fresh}/reveal-consent`, { consent: false })).status).toBe(200);
+
+    const adminView = (await call<AdminView>('GET', admin)).data;
+    expect(adminView.participants.find((p) => p.name === 'Oma')!.linkReissuedAt).toBe(after.me.linkReissuedAt);
+    expect(adminView.revealConsentCount).toBe(0);
+    for (const path of [admin, invite]) expect(JSON.stringify((await call('GET', path)).data)).not.toContain(fresh);
+    expect((await call<MeView>('GET', `/api/me/${tokens.get('Lisa')}`)).data.me.linkReissuedAt).toBeNull();
+    expect((await call<MeView>('GET', `/api/me/${organizerToken}`)).data.me.name).toBe('Mama');
+    expect((await call('POST', `${invite}/claim`, { participantId: id('Oma') })).data.error).toBe('already-drawn');
   });
 
   it('scopes claims to their group and rate-limits repeated attempts', async () => {

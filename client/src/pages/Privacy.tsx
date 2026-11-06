@@ -32,8 +32,9 @@ export function Privacy() {
         <h2>Deine Links sind deine Schlüssel</h2>
         <p>
           Wer einen persönlichen Link kennt, kann die zugehörige Seite öffnen. Gib ihn deshalb nicht weiter und sichere eine
-          Kopie für dich. Die Organisator:in kann ihn weder abrufen noch ersetzen. Ohne gespeicherte Kopie ist keine
-          Wiederherstellung möglich. Bei einem weitergegebenen Link müsst ihr die betroffene Runde löschen und neu starten.
+          Kopie für dich. Die Organisator:in kann ihn nicht abrufen, aber bei Verlust einen neuen ausstellen. Der alte Link
+          funktioniert dann nicht mehr und du siehst auf deiner Seite einen Hinweis darauf. Bei einem weitergegebenen Link
+          kann die Organisator:in ebenfalls einen neuen ausstellen.
         </p>
 
         <h2>Einladungen nur in der Familie teilen</h2>

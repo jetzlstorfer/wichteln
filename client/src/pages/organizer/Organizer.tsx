@@ -184,7 +184,8 @@ function SelfCard({ view, token }: { view: AdminView; token: string }) {
       <p className="font-bold">Deine eigene Wichtel-Seite</p>
       <p className="mt-1 text-sm text-cream-200/85">
         Auf diesem Handy ist dein persönlicher Link nicht gespeichert. Öffne deine gespeicherte Kopie
-        oder übertrage ihn von deinem bisherigen Gerät. Auch der Organisator-Link kann persönliche Links nicht ersetzen.
+        oder übertrage ihn von deinem bisherigen Gerät. Ist er verloren, tipp unter „Wer macht mit?“ auf deinen Namen
+        und stell dir einen neuen aus.
       </p>
     </div>
   );
