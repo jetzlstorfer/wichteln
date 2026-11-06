@@ -8,7 +8,8 @@ These resource-group-scoped Bicep files deploy Wichteln to **Azure Container App
 Consumption** with **Azure Table Storage**. Adding or compiling them creates
 nothing in Azure. **Do not run the provisioning, login, push, deployment or
 maintenance commands below until you have explicitly approved Azure changes.**
-There is no automatic deployment workflow or sample container.
+The GitHub Actions workflow below deploys application releases after its one-time
+OIDC setup. Infrastructure bootstrap remains an explicit operator action.
 
 ## Resources and boundaries
 
@@ -194,6 +195,82 @@ az containerapp job execution list --name "${Prefix}-maintenance" --resource-gro
 Do not switch a live deployment back to bootstrap as a shutdown mechanism:
 incremental deployment omitting a module does not delete its existing resources.
 No teardown commands are automated; deleting the resource group destroys tables.
+
+## GitHub Actions: PR checks and releases from main
+
+`.github/workflows/ci.yml` runs on PR creation, new commits, reopening, every
+push to `main` (including merges), and manual dispatch. Two checks run without
+Azure credentials:
+
+- **Application checks**: Node 24, `npm ci`, `npm run verify` (type checks,
+  memory tests, isolated Azurite integration tests, production build and bundled
+  HTTP/maintenance smoke tests), and a Linux/amd64 Docker build without pushing.
+- **Infrastructure checks**: lint the workflow with actionlint, compile all Bicep
+  templates and bootstrap parameters, and parse the PowerShell deployment script.
+
+After both pass on `main`, **Deploy production** signs in using OIDC, builds and
+pushes a uniquely tagged image, resolves its digest, and deploys
+`workloads.bicep` to update **both** the app and scheduled job. It keeps at least
+one replica, preserves the existing runtime identity, environment, public URL,
+tags and maximum replica setting, and checks readiness, image digests and HTTP
+health. Main runs are serialized without cancelling an in-progress deployment;
+up to 100 pending runs are queued rather than replaced (additional runs are
+cancelled when the queue is full). PR runs are also queued per PR. Manual runs
+deploy only when the selected branch is `main`.
+
+The workflow does not bootstrap storage, change role assignments, migrate data,
+or run cleanup manually. Changes to `main.bicep` still require an explicit
+infrastructure deployment. On plans that support private-repository branch
+protection, configure branch protection/rulesets to require
+**Application checks** and **Infrastructure checks** before merging; the
+workflow alone cannot prevent merging a failing PR.
+
+`.github/dependabot.yml` groups version updates by ecosystem for npm, GitHub
+Actions and the root Dockerfile, and checks quarterly. Dependabot security
+updates, when enabled, are not delayed by that schedule. The actionlint image
+invoked in a shell command is not detected by Dependabot and must be updated
+manually.
+
+### One-time OIDC setup
+
+Use a **separate deployment identity**, not the app's runtime identity.
+`github-actions.bicep` grants it Contributor **only on `rg-wichteln`** and
+AcrPush only on its registry. Contributor allows managing resources in that
+group, including deployment history and runtime identity assignment, but does
+not permit role-assignment changes. No subscription-wide role or client secret
+is needed. Treat changes to workflow and infrastructure files as privileged code.
+The federated subject is restricted directly to the repository's `main` branch,
+so no GitHub environment protection is required on a private GitHub Free repo.
+
+With the personal Azure subscription variables from above, create the federation
+and roles. This requires role-assignment permission and changes Azure resources;
+compilation alone does not configure OIDC.
+
+```powershell
+$Registry = az deployment group show --name wichteln-bootstrap --resource-group $ResourceGroup --subscription $Subscription --query properties.outputs.registryName.value -o tsv
+if ($LASTEXITCODE -ne 0) { throw 'Cannot read registry name' }
+$Oidc = gh api repos/jetzlstorfer/wichteln/actions/oidc/customization/sub | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or -not $Oidc.use_default -or -not $Oidc.sub_claim_prefix) { throw 'Cannot determine default GitHub OIDC subject prefix' }
+az deployment group create --name wichteln-github-identity --resource-group $ResourceGroup --subscription $Subscription --template-file .\infra\github-actions.bicep --parameters "registryName=$Registry" "githubSubjectPrefix=$($Oidc.sub_claim_prefix)"
+if ($LASTEXITCODE -ne 0) { throw 'GitHub identity setup failed' }
+$Ci = az deployment group show --name wichteln-github-identity --resource-group $ResourceGroup --subscription $Subscription --query properties.outputs -o json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw 'Cannot read GitHub identity outputs' }
+
+# Non-secret repository variables.
+gh variable set AZURE_CLIENT_ID --repo jetzlstorfer/wichteln --body $Ci.clientId.value
+gh variable set AZURE_TENANT_ID --repo jetzlstorfer/wichteln --body $Ci.tenantId.value
+gh variable set AZURE_SUBSCRIPTION_ID --repo jetzlstorfer/wichteln --body $Ci.subscriptionId.value
+```
+
+The federation issuer is `https://token.actions.githubusercontent.com`,
+audience is `api://AzureADTokenExchange`, and subject combines GitHub's exact
+repository prefix (including immutable owner and repository IDs) with
+`:ref:refs/heads/main`. Re-run setup if the repository's OIDC subject changes.
+Role propagation may take a few minutes. Once the files are merged and configuration is complete, use
+**Actions > CI > Run workflow > main** for the first release or rerun a failed
+deployment after setup. Fork PRs use `pull_request`, never
+`pull_request_target`, and cannot run the OIDC deployment job. No Azure access
+is necessary for PR checks.
 
 ## Costs, persistence and privacy
 
