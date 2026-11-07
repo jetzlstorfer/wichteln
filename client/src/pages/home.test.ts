@@ -27,6 +27,10 @@ describe('the website', () => {
     expect(html).toContain('Neue Wichtel-Runde starten');
     expect(html).toContain('So funktioniert’s');
     expect(html).toContain('Link in die Familiengruppe');
+    expect(html).toContain('/img/hero-sky-768.webp');
+    expect(html).toContain('/img/hero-flying-768.webp');
+    expect(html).toContain('Hauptplatz von Freistadt');
+    expect(html).toContain('hero-flight pointer-events-none absolute inset-0');
     expect(html).not.toMatch(/Kostenlos|ohne Passwort|persönlich bestätigt|Was die App kann|Datenschutz|Impressum|Mit Liebe gemacht/i);
   });
 
