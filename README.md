@@ -60,14 +60,18 @@ Damit die Familie im selben WLAN mitmachen kann, die Adresse des Rechners verwen
 
 ```bash
 npm run dev          # API (tsx watch, :8787) + Vite (:5173) mit Hot Reload
+npm run lint         # Biome: TypeScript, React und JavaScript-Skripte (keine Warnungen)
 npm test             # Vitest: Auslosung + API
 npm run test:tables  # gesamte Suite mit eigenem Azurite, Zufallsport und temporären Testdaten
-npm run verify       # Typen, beide Test-Backends, Build und HTTP-/Aufräum-Test des Bundles
+npm run verify       # Lint, Typen, beide Test-Backends, Build und HTTP-/Aufräum-Test des Bundles
 npm run typecheck    # TypeScript für Client und Server
 npm run assets       # Bilder aus design/source in client/public/img neu erzeugen
 ```
 
 Tipp: Mit `FAKE_TODAY=2026-12-10 npm run dev:server` lässt sich der Adventkalender oder die Bescherung ausprobieren.
+
+CI führt `npm run verify` inklusive Linting aus. Generierte Dateien in `dist/`, `coverage/` und lokale Daten in `data/` sind vom Linting ausgeschlossen.
+`biome.json` aktiviert gezielte Korrektheitsregeln, unter anderem für unbenutzte Variablen und Imports, unerreichbaren Code, doppelte Schlüssel und die Aufrufreihenfolge von React Hooks. Formatierung und Import-Sortierung bleiben unverändert.
 
 ### Aufbau
 

@@ -17,7 +17,8 @@
     "start": "node dist/server/index.js",
     "test": "vitest run",
     "test:tables": "node scripts/test-tables.mjs",
-    "verify": "npm run typecheck && npm test && npm run build && node scripts/test-tables.mjs --smoke",
+    "lint": "biome lint . --error-on-warnings",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build && node scripts/test-tables.mjs --smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p server/tsconfig.json --noEmit",
     "assets": "node scripts/process-assets.mjs",
     "maintenance": "tsx server/src/index.ts --maintenance",
@@ -32,6 +33,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.2.4",
     "azurite": "^3.35.0",
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/nunito": "^5.3.0",
