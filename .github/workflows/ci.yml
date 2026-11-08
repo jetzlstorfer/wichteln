@@ -32,7 +32,7 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
-      - name: Types, tests, build and isolated Table Storage smoke tests
+      - name: Lint, types, tests, build and isolated Table Storage smoke tests
         run: npm run verify
       - name: Build Linux container
         run: docker build --platform linux/amd64 --tag wichteln:ci .
