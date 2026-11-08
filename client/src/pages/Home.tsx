@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { ChevronRight, Crown, Gift, Trash2 } from 'lucide-react';
-import { Footer, TopBar } from '../components/Layout';
+import { Footer } from '../components/Layout';
 import { ConfirmSheet } from '../components/ui';
 import { forgetRound, listRounds, type SavedRound } from '../lib/storage';
 import { useDocumentTitle } from '../lib/hooks';
@@ -47,21 +47,27 @@ export function Home() {
       <div className="relative z-[1]">
         <div className="relative mx-auto max-w-5xl overflow-hidden">
           <img
-            src="/img/hero-768.webp"
-            srcSet="/img/hero-768.webp 768w, /img/hero-1280.webp 1280w, /img/hero-1536.webp 1536w"
+            src="/img/hero-sky-768.webp"
+            srcSet="/img/hero-sky-768.webp 768w, /img/hero-sky-1280.webp 1280w, /img/hero-sky-1536.webp 1536w"
             sizes="(min-width: 1024px) 1024px, 100vw"
             width={1536}
             height={1024}
-            alt="Das Christkind fliegt mit einer Sternlaterne über ein verschneites Alpendorf"
+            alt="Das Christkind fliegt mit einer Sternlaterne über den verschneiten Hauptplatz von Freistadt und die Hügel des Mühlviertels"
             fetchPriority="high"
-            className="h-[min(62vh,34rem)] w-full object-cover object-[50%_35%] sm:rounded-b-[2.5rem]"
+            className="h-[min(62vh,34rem)] w-full object-cover object-[25%_35%] sm:rounded-b-[2.5rem]"
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-night-900/40 via-transparent to-night-900" />
-          <div className="absolute inset-x-0 top-0">
-            <div className="page !pb-0">
-              <TopBar />
-            </div>
+          <div className="hero-flight pointer-events-none absolute inset-0" aria-hidden="true">
+            <img
+              src="/img/hero-flying-768.webp"
+              srcSet="/img/hero-flying-768.webp 768w, /img/hero-flying-1280.webp 1280w, /img/hero-flying-1536.webp 1536w"
+              sizes="(min-width: 1024px) 1024px, 100vw"
+              width={1536}
+              height={1024}
+              alt=""
+              className="h-full w-full object-cover object-[25%_35%]"
+            />
           </div>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-night-900/40 via-transparent to-night-900" />
         </div>
         <main className="page -mt-28 sm:-mt-32">
           <div className="text-center animate-fade-up">

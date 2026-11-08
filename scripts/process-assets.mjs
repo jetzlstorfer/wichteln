@@ -3,6 +3,7 @@
 import sharp from 'sharp';
 import fs from 'node:fs';
 import path from 'node:path';
+import { buildHeroLayers } from './hero-layers.mjs';
 
 const SRC = 'design/source';
 const OUT = 'client/public/img';
@@ -73,11 +74,7 @@ async function main() {
       .webp({ quality: 80, effort: 6 })
       .toFile(path.join(OUT, `hero-${width}.webp`));
   }
-  // Open Graph preview for WhatsApp/Signal (1200x630)
-  await sharp(path.join(SRC, 'hero.webp'))
-    .resize(1200, 630, { fit: 'cover', position: 'top' })
-    .jpeg({ quality: 82, mozjpeg: true })
-    .toFile(path.join(OUT, 'og-image.jpg'));
+  await buildHeroLayers(path.join(SRC, 'hero.webp'), path.join(SRC, 'freistadt.webp'), OUT);
 
   await cutout('packerl', [256, 512]);
   await cutout('glocke', [256, 512]);

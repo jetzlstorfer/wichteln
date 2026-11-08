@@ -16,6 +16,9 @@ param imageTag string
 
 param publicUrl string = ''
 
+@description('Ingress custom-domain bindings managed separately after DNS validation. Preserve these on every release.')
+param customDomains array = []
+
 @minValue(1)
 @maxValue(10)
 param maxReplicas int = 2
@@ -107,6 +110,7 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
         allowInsecure: false
         targetPort: 8787
         transport: 'auto'
+        customDomains: customDomains
         traffic: [
           {
             latestRevision: true

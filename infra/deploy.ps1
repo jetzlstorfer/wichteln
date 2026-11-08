@@ -48,6 +48,23 @@ $outputs = Invoke-Az deployment group show --name wichteln-bootstrap @common --q
 $registry = $outputs.registryName.value
 $loginServer = $outputs.registryLoginServer.value
 
+$runtimeParameters = @{
+  publicUrl = @{ value = '' }
+  customDomains = @{ value = @() }
+}
+$apps = @(Invoke-Az resource list @common --resource-type Microsoft.App/containerApps --query '[].name' -o json | ConvertFrom-Json)
+if ("${Prefix}-app" -in $apps) {
+  $app = Invoke-Az containerapp show --name "${Prefix}-app" @common -o json | ConvertFrom-Json
+  $publicUrl = $app.properties.template.containers |
+    Where-Object name -eq 'wichteln' |
+    ForEach-Object env |
+    Where-Object name -eq 'PUBLIC_URL'
+  if ($publicUrl) { $runtimeParameters.publicUrl.value = $publicUrl.value }
+  if ($app.properties.configuration.ingress.customDomains) {
+    $runtimeParameters.customDomains.value = @($app.properties.configuration.ingress.customDomains)
+  }
+}
+
 Write-Host "Build + push image to $loginServer"
 $tag = (git -C $Root rev-parse --short=12 HEAD).Trim() + '-' + (Get-Date -Format 'yyyyMMddHHmmss')
 $image = "${loginServer}/${Repository}:${tag}"
@@ -61,13 +78,19 @@ if ($digest -notmatch '^sha256:[0-9a-f]{64}$') { throw "Unexpected digest '$dige
 
 Write-Host "Phase 2: app + maintenance job ($digest)"
 $attempt = 0
-while ($true) {
-  $attempt++
-  & az deployment group create --name wichteln-release @common --template-file $Template --parameters @params deployApp=true "imageTag=$digest" -o none
-  if ($LASTEXITCODE -eq 0) { break }
-  if ($attempt -ge 3) { throw 'Workload deployment failed (check image pull / RBAC propagation)' }
-  Write-Warning "Release attempt $attempt failed; waiting 90s for RBAC propagation"
-  Start-Sleep -Seconds 90
+$runtimeFile = New-TemporaryFile
+try {
+  $runtimeParameters | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $runtimeFile.FullName -Encoding utf8
+  while ($true) {
+    $attempt++
+    & az deployment group create --name wichteln-release @common --template-file $Template --parameters @params "@$($runtimeFile.FullName)" deployApp=true "imageTag=$digest" -o none
+    if ($LASTEXITCODE -eq 0) { break }
+    if ($attempt -ge 3) { throw 'Workload deployment failed (check image pull / RBAC propagation)' }
+    Write-Warning "Release attempt $attempt failed; waiting 90s for RBAC propagation"
+    Start-Sleep -Seconds 90
+  }
+} finally {
+  Remove-Item -LiteralPath $runtimeFile.FullName
 }
 
 $appUrl = (Invoke-Az deployment group show --name wichteln-release @common --query properties.outputs.appUrl.value -o tsv).Trim()

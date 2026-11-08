@@ -89,6 +89,15 @@
   50% { transform: translateY(-10px); }
 }
 
+@keyframes hero-flight {
+  0%, 100% { transform: translate(0, 24px); }
+  50% { transform: translate(3px, 15px); }
+}
+
+.hero-flight {
+  animation: hero-flight 5s ease-in-out infinite;
+}
+
 @layer base {
   html {
     background: var(--color-night-900);
