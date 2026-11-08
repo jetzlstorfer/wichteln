@@ -21,6 +21,9 @@ param imageTag string = ''
 @description('Optional HTTPS public base URL. Empty lets the application use CONTAINER_APP_HOSTNAME at runtime.')
 param publicUrl string = ''
 
+@description('Existing ingress custom-domain bindings, including certificate IDs. Preserve these on every release.')
+param customDomains array = []
+
 @minValue(1)
 @maxValue(10)
 param maxReplicas int = 2
@@ -186,6 +189,7 @@ module workloads 'workloads.bicep' = if (deployApp) {
     imageRepository: imageRepository
     imageTag: imageTag
     publicUrl: publicUrl
+    customDomains: customDomains
     maxReplicas: maxReplicas
     minReplicas: minReplicas
   }

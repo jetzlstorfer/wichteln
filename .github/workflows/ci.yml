@@ -152,6 +152,7 @@ jobs:
               imageRepository: $repository,
               imageTag: $digest,
               publicUrl: ($env.PUBLIC_URL // ""),
+              customDomains: ($app.properties.configuration.ingress.customDomains // []),
               minReplicas: 1,
               maxReplicas: ($app.properties.template.scale.maxReplicas // 2)
             } | map_values({value: .}) |

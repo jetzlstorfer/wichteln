@@ -77,6 +77,74 @@ serve HTTP and must not require that hostname for maintenance. Set `publicUrl`
 only to an approved HTTPS base URL; this does **not** provision custom DNS,
 certificates or a Container Apps custom-domain binding.
 
+## Custom domain: wichteln.jetzlstorfer.org
+
+Production is live at **https://wichteln.jetzlstorfer.org**, with an Azure-managed
+TLS certificate and `PUBLIC_URL` set on both the app and maintenance job.
+The following records and steps document the setup for recovery.
+
+The existing production app is `wichteln-app` in `rg-wichteln`, subscription
+`3e79bb51-3c95-4b79-b815-1380dfcd3506`. No new app, storage, or paid gateway is
+needed. Keep the generated Azure hostname available so existing secret links
+continue to work; this change does not migrate or modify round data.
+
+In Cloudflare's `jetzlstorfer.org` zone, add these records with TTL **Auto**:
+
+| Type | Name | Content | Proxy |
+| --- | --- | --- | --- |
+| CNAME | `wichteln` | `wichteln-app.agreeabledune-a848d470.westeurope.azurecontainerapps.io` | **DNS only** (grey cloud) |
+| TXT | `asuid.wichteln` | `BF54F28C02371C14B99AFDE4C91739940FFA007C83A1364707A8898A9F2AB968` | DNS only |
+
+Keep the CNAME DNS-only permanently, not just during setup: Azure's free managed
+certificate requires a direct CNAME for issuance **and renewal**. Do not enable
+flattening for this subdomain. Cloudflare SSL mode is irrelevant when DNS-only;
+Azure terminates HTTPS. Do not change the zone's nameservers or other records.
+If adding restrictive CAA records later, allow `0 issue "digicert.com"`; no CAA
+record was present at the root when this migration was prepared.
+
+Azure cannot save even an unsecured hostname until the TXT verification record
+is publicly visible. After DNS propagation, open **Container Apps >
+wichteln-app > Networking > Custom domains > Add custom domain** in the Azure
+portal. Select **Managed certificate**, domain `wichteln.jetzlstorfer.org`,
+record type **CNAME**, then **Validate > Add**. Wait until the domain is
+**Secured**. The equivalent explicitly subscription-scoped commands are:
+
+```powershell
+az containerapp hostname add --hostname wichteln.jetzlstorfer.org --name wichteln-app --resource-group rg-wichteln --subscription 3e79bb51-3c95-4b79-b815-1380dfcd3506
+if ($LASTEXITCODE -ne 0) { throw 'Hostname validation failed; check the public TXT record' }
+az containerapp hostname bind --hostname wichteln.jetzlstorfer.org --name wichteln-app --resource-group rg-wichteln --environment wichteln-environment --validation-method CNAME --subscription 3e79bb51-3c95-4b79-b815-1380dfcd3506
+if ($LASTEXITCODE -ne 0) { throw 'Certificate binding failed; check the direct CNAME and CAA records' }
+Invoke-RestMethod https://wichteln.jetzlstorfer.org/api/health
+```
+
+Only once HTTPS works, set `PUBLIC_URL=https://wichteln.jetzlstorfer.org` on the
+app (**Containers > Edit and deploy > Environment variables**) and on the
+`wichteln-maintenance` job's container configuration. Keep every other variable
+unchanged. For the CLI:
+
+```powershell
+az containerapp update --name wichteln-app --resource-group rg-wichteln --subscription 3e79bb51-3c95-4b79-b815-1380dfcd3506 --set-env-vars PUBLIC_URL=https://wichteln.jetzlstorfer.org --output none
+if ($LASTEXITCODE -ne 0) { throw 'Public URL update failed' }
+az containerapp job update --name wichteln-maintenance --resource-group rg-wichteln --subscription 3e79bb51-3c95-4b79-b815-1380dfcd3506 --set-env-vars PUBLIC_URL=https://wichteln.jetzlstorfer.org --output none
+if ($LASTEXITCODE -ne 0) { throw 'Maintenance configuration update failed' }
+Invoke-RestMethod https://wichteln.jetzlstorfer.org/api/health
+```
+
+GitHub Actions and `deploy.ps1` preserve the live `PUBLIC_URL` and
+`ingress.customDomains` (including certificate IDs) on later releases. Merge
+the preservation changes before the next automated deployment. When invoking
+Bicep manually, also pass `publicUrl` and `customDomains` explicitly, using the
+live ingress bindings; their defaults are empty and would remove this setup.
+Certificates remain Azure-managed rather than being re-created on each release.
+
+Browser-saved rounds and installed PWAs are scoped to the old origin and do not
+automatically move. Save personal/organizer links privately before switching,
+replace only their hostname to open them on the new domain, and reinstall the
+PWA if desired. Tokens and paths remain valid; do not share secret links in logs.
+
+References: [Azure managed certificates](https://learn.microsoft.com/en-us/azure/container-apps/custom-domains-managed-certificates)
+and [Cloudflare proxy status](https://developers.cloudflare.com/dns/proxy-status/).
+
 ## Local checks only (safe before deployment approval)
 
 Run from the repository root with Azure CLI/Bicep installed:
@@ -212,7 +280,7 @@ After both pass on `main`, **Deploy production** signs in using OIDC, builds and
 pushes a uniquely tagged image, resolves its digest, and deploys
 `workloads.bicep` to update **both** the app and scheduled job. It keeps at least
 one replica, preserves the existing runtime identity, environment, public URL,
-tags and maximum replica setting, and checks readiness, image digests and HTTP
+custom-domain bindings, tags and maximum replica setting, and checks readiness, image digests and HTTP
 health. Main runs are serialized without cancelling an in-progress deployment.
 GitHub's default single-pending-run concurrency queue keeps only the newest
 waiting run per branch: a new run replaces an older pending run before its jobs
