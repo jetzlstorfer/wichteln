@@ -136,15 +136,21 @@ export function Invite() {
             ? 'Tipp auf deinen Namen und du bekommst sofort deinen geheimen Wichtel-Link.'
             : `Alle Namen sind schon vergeben. Verwende deinen gespeicherten persönlichen Link oder bitte ${group.organizerName} um einen neuen.`}
         </p>
+        {group.drawn && open.length > 0 ? (
+          <p className="mt-2 text-sm text-ink-700">
+            Es wurde schon ausgelost. Wähle deinen Namen, um deine persönliche Seite zu öffnen.
+            Deine Zuteilung steht bereits fest.
+          </p>
+        ) : null}
         <ul className="mt-4 grid grid-cols-2 gap-2">
           {participants.map((p) => (
             <li key={p.id}>
               <button
                 type="button"
-                disabled={p.claimed || group.drawn}
+                disabled={p.claimed}
                 onClick={() => setPicked(p)}
                 className={`flex min-h-14 w-full items-center gap-2 rounded-2xl border-2 px-3 py-2 text-left font-bold transition ${
-                  p.claimed || group.drawn
+                  p.claimed
                     ? 'cursor-not-allowed border-transparent bg-cream-200/60 text-ink-300'
                     : 'border-cream-300 bg-white text-ink-900 shadow-sm hover:border-gold-500 active:scale-[0.98]'
                 }`}

@@ -13,7 +13,8 @@ Online: **https://wichteln.jetzlstorfer.org**
 - **Paare** festlegen (die beschenken sich nie gegenseitig), **eigene Regeln** („Opa soll nicht Oma …“) und **„Wie im Vorjahr? Lieber nicht!“**
 - Faire Auslosung: jede gültige Zuteilung ist gleich wahrscheinlich; ist eine Auslosung unmöglich, sagt die App warum
 - Sehen, wer sich gemeldet und wer schon nachgeschaut hat – ohne die Paarungen zu sehen
-- Erst auslosen, wenn **alle ihren Namen ausgewählt** haben. Vergebene Namen bleiben gesperrt; persönliche Links kann die organisierende Person nie anzeigen. Geht ein Link verloren, kann sie ihn aber **neu ausstellen**: Der alte Link funktioniert dann sofort nicht mehr, und die Person sieht auf ihrer Seite einen Hinweis darauf
+- **Auslosen, auch bevor alle ihren Namen ausgewählt haben**: Alle eingetragenen Personen werden einbezogen; bei noch offenen Namen erscheint eine Warnung. Die Namensauswahl bleibt danach möglich und öffnet die bestehende Zuteilung, ohne neu auszulosen. Personen und Regeln bleiben nach der Auslosung gesperrt. Bitte vorher sicherstellen, dass alle mitmachen
+- Vergebene Namen bleiben gesperrt; persönliche Links kann die organisierende Person nie anzeigen. Geht ein Link verloren, kann sie ihn aber **neu ausstellen**: Der alte Link funktioniert dann sofort nicht mehr, und die Person sieht auf ihrer Seite einen Hinweis darauf
 - Auslosung bei Bedarf zurücksetzen
 
 **Für alle in der Familie**
@@ -158,8 +159,10 @@ Die App sollte im Internet **nur per HTTPS** erreichbar sein. `TRUST_PROXY=true`
 
 **Vertrauensgrenze:** Die Einladung nur in der vertrauten Familie teilen. Wer sie kennt, kann einen noch freien Namen auswählen – die App prüft die Identität bewusst nicht. Lange persönliche Links schützen vor Erraten, nicht davor, dass jemand zuerst einen fremden Namen beansprucht. Bei einer falschen Auswahl vor der Auslosung die betroffene Person nach Rücksprache entfernen und neu eintragen (ihr bisheriger Wunschzettel wird dabei gelöscht). Nach der Auslosung bleibt ein Zurücksetzen nötig; bereits bekannte Zuteilungen werden dadurch nicht wieder geheim. Wer einen Link neu ausstellt, könnte ihn selbst öffnen und die Zuteilung dieser Person sehen – die App verhindert das nicht, macht es aber sichtbar: Der alte Link der Person hört auf zu funktionieren, und ihre Seite zeigt einen Hinweis. Die Datenbank enthält die Zuteilungen; dies ist keine Ende-zu-Ende-Verschlüsselung und schützt nicht vor dem Serverbetreiber. Persönliche URLs auch aus Proxy-/Zugriffslogs fernhalten.
 
+Die Namensauswahl bleibt nach der Auslosung offen. Wer dann einen fremden freien Namen auswählt, kann dessen Zuteilung sofort aufdecken. Deshalb den Einladungslink weiterhin nur im vertrauten Kreis teilen.
+
 ### Update von der Version mit Bestätigungscodes
 
 Alle bereits gültigen persönlichen Links, Organisator-Links und Rundendaten bleiben erhalten. Die Migration entfernt nur die ausstehenden Code-Anfragen und das alte Prüfmerkmal. Wer bisher auf eine Bestätigung gewartet hat, öffnet die ursprüngliche Einladung erneut und wählt den Namen; alte Code-Anfragen werden nicht automatisch zu persönlichen Zugängen.
 
-Bei sehr alten Daten aus der ersten Version ohne Code-Prüfung greift weiterhin die damalige Sicherheitsmigration: Diese alten Teilnehmer-Links (außer dem eigenen Organisator-Zugang) sind gesperrt. Die Namen können vor der Auslosung neu gewählt werden. Bereits ausgeloste Altrunden müssen dafür zuerst bewusst zurückgesetzt werden. Vor einem Update ein Datenbankbackup erstellen.
+Bei sehr alten Daten aus der ersten Version ohne Code-Prüfung greift weiterhin die damalige Sicherheitsmigration: Diese alten Teilnehmer-Links (außer dem eigenen Organisator-Zugang) sind gesperrt. Freie Namen können auch in bereits ausgelosten Altrunden neu gewählt werden; die bestehende Zuteilung bleibt erhalten. Bereits bekannte Zuteilungen werden dadurch nicht wieder geheim. Vor einem Update ein Datenbankbackup erstellen.

@@ -128,6 +128,30 @@ describe('simplified organizer draw section', () => {
     expect(html).not.toMatch(/So weit sind die Packerl|Auflösung|Zustimmung/);
   });
 
+  it('enables drawing with unclaimed people and warns that they will still be included', () => {
+    const html = renderDraw({
+      ...organizer,
+      group: { ...organizer.group, drawn: false, drawnAt: null },
+      participants: organizer.participants.map((p) => ({ ...p, claimed: false })),
+    });
+
+    expect(html).toMatch(/<button(?![^>]*disabled)[^>]*>[\s\S]*?Jetzt auslosen/);
+    expect(html).toContain('3 Personen haben');
+    expect(html).toContain('Sie werden trotzdem einbezogen');
+    expect(html).toContain('können ihren Namen auch danach auswählen');
+  });
+
+  it('still disables drawing with fewer than three people', () => {
+    const html = renderDraw({
+      ...organizer,
+      group: { ...organizer.group, drawn: false, drawnAt: null },
+      participants: organizer.participants.slice(0, 2),
+    });
+
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>[\s\S]*?Jetzt auslosen/);
+    expect(html).toContain('mindestens 3 Personen');
+  });
+
   it.each([0, 3])('removes progress counters and publication controls with %i prior consents', (revealConsentCount) => {
     const html = renderDraw({ ...organizer, revealConsentCount });
 

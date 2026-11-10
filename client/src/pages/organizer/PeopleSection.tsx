@@ -277,11 +277,6 @@ function PersonSheet({
               </div>
             )}
           </>
-        ) : drawn ? (
-          <p className="mt-2 text-sm text-berry-600">
-            Diese ältere Runde enthält noch nicht vergebene Namen. Setze zuerst die Auslosung zurück,
-            lass alle ihren Namen auswählen und lose neu aus. Alte Zuteilungen können bereits bekannt sein.
-          </p>
         ) : (
           <p className="mt-2 text-sm text-ink-700">
             Schick {firstName(person.name)} den gemeinsamen Einladungslink. Nach der Namensauswahl öffnet sich
