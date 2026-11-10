@@ -62,7 +62,7 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
         {unclaimed > 0 && total >= 3 ? (
           <p role="alert" className="mt-4 text-sm font-semibold text-berry-700">
             {unclaimed === 1 ? '1 Person hat' : `${unclaimed} Personen haben`} noch keinen Namen ausgewählt.
-            {' '}Sie werden trotzdem einbezogen. Bitte stell sicher, dass alle mitmachen.
+            {' '}{unclaimed === 1 ? 'Sie wird' : 'Sie werden'} trotzdem einbezogen. Bitte stell sicher, dass alle mitmachen.
           </p>
         ) : null}
         {drawError ? (
@@ -88,7 +88,7 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
           </p>
           {unclaimed > 0 ? (
             <p className="mt-2 font-bold text-berry-700">
-              {unclaimed === 1 ? '1 Person hat' : `${unclaimed} Personen haben`} ihren Namen noch nicht ausgewählt und werden trotzdem einbezogen.
+              {unclaimed === 1 ? '1 Person hat' : `${unclaimed} Personen haben`} ihren Namen noch nicht ausgewählt und {unclaimed === 1 ? 'wird' : 'werden'} trotzdem einbezogen.
               {' '}Die Namensauswahl ist auch später über die Einladung möglich; die Zuteilung bleibt gleich.
             </p>
           ) : null}
