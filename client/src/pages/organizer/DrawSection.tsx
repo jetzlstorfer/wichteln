@@ -16,6 +16,7 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
   const { group, participants } = view;
   const total = participants.length;
   const claimed = participants.filter((p) => p.claimed).length;
+  const unclaimed = total - claimed;
   const seen = participants.filter((p) => p.revealSeen).length;
 
   const doDraw = async () => {
@@ -49,22 +50,28 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
             ) : (
               <>
                 <p className="font-bold text-ink-900">
-                  {claimed} von {total} sind dabei.
+                  {claimed} von {total} haben ihren Namen ausgewählt.
                 </p>
                 <p className="mt-1">
-                  Sobald alle ihren Namen in der Einladung ausgewählt haben, kann das Christkind auslosen.
+                  Du kannst schon auslosen. Alle eingetragenen Personen machen mit und können ihren Namen auch danach auswählen.
                 </p>
               </>
             )}
           </div>
         </div>
+        {unclaimed > 0 && total >= 3 ? (
+          <p role="alert" className="mt-4 text-sm font-semibold text-berry-700">
+            {unclaimed === 1 ? '1 Person hat' : `${unclaimed} Personen haben`} noch keinen Namen ausgewählt.
+            {' '}{unclaimed === 1 ? 'Sie wird' : 'Sie werden'} trotzdem einbezogen. Bitte stell sicher, dass alle mitmachen.
+          </p>
+        ) : null}
         {drawError ? (
           <div role="alert" className="mt-4 flex gap-2 rounded-2xl bg-berry-500/10 p-3 text-sm font-semibold text-berry-700">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
             {drawError}
           </div>
         ) : null}
-        <Button className="mt-4 w-full text-lg" disabled={total < 3 || claimed !== total} onClick={() => setConfirm('draw')}>
+        <Button className="mt-4 w-full text-lg" disabled={total < 3} onClick={() => setConfirm('draw')}>
           <Sparkles className="size-5" /> Jetzt auslosen
         </Button>
         <ConfirmSheet
@@ -79,6 +86,12 @@ export function DrawSection({ view, token, reload }: { view: AdminView; token: s
             Das Christkind lost jetzt für {total} Personen aus. Danach lassen sich Personen und Regeln nicht mehr ändern – außer
             du setzt die Auslosung zurück.
           </p>
+          {unclaimed > 0 ? (
+            <p className="mt-2 font-bold text-berry-700">
+              {unclaimed === 1 ? '1 Person hat' : `${unclaimed} Personen haben`} ihren Namen noch nicht ausgewählt und {unclaimed === 1 ? 'wird' : 'werden'} trotzdem einbezogen.
+              {' '}Die Namensauswahl ist auch später über die Einladung möglich; die Zuteilung bleibt gleich.
+            </p>
+          ) : null}
           <p className="mt-2 font-bold">Jede Person sieht nur die eigene Zuteilung – auch du.</p>
         </ConfirmSheet>
       </Section>

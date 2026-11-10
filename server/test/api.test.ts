@@ -207,7 +207,6 @@ describe('API', () => {
   it('immediately grants access to the first claimant and never discloses their token in group views', async () => {
     const { admin, view, id } = await setupFamily();
     const invite = `/api/invite/${view.group.inviteCode}`;
-    expect((await call('POST', `${admin}/draw`)).data.error).toBe('unclaimed-participants');
     const token = await claimPerson(invite, id('Oma'));
     expect((await call<MeView>('GET', `/api/me/${token}`)).data.me.name).toBe('Oma');
     expect((await call('POST', `/api/me/${token}/wishes`, { text: 'Ein Buch' })).status).toBe(201);
@@ -225,8 +224,47 @@ describe('API', () => {
     expect((await call<MeView>('GET', `/api/me/${token}`)).data.me.wishes[0].text).toBe('Ein Buch');
   });
 
-  it('grants exactly one link when requests race for the same name', async () => {
-    const { view, id } = await setupFamily();
+  it('draws for unclaimed people and preserves assignments and messages when they claim later', async () => {
+    const { admin, view, id, organizerToken } = await setupFamily();
+    const invite = `/api/invite/${view.group.inviteCode}`;
+    expect((await call('POST', `${admin}/draw`)).status).toBe(200);
+    const organizer = (await call<MeView>('GET', `/api/me/${organizerToken}`)).data;
+    expect(organizer.recipient).not.toBeNull();
+    expect((await call('POST', `/api/me/${organizerToken}/messages`, { to: 'recipient', body: 'Was wünschst du dir?' })).status).toBe(201);
+    const before = (await db.read(view.group.id))!;
+    expect(before.assignments).toHaveLength(view.participants.length);
+    expect((await call<InviteView>('GET', invite)).data.group.drawn).toBe(true);
+
+    const tokens = await claimAll(view);
+    for (const [name, token] of tokens) {
+      const me = (await call<MeView>('GET', `/api/me/${token}`)).data;
+      const assignment = before.assignments.find((a) => a.giver_id === id(name))!;
+      expect(me.recipient?.name).toBe(view.participants.find((p) => p.id === assignment.receiver_id)!.name);
+      expect(me.me.revealSeen).toBe(false);
+    }
+    const recipientToken = tokens.get(organizer.recipient!.name)!;
+    expect((await call<MeView>('GET', `/api/me/${recipientToken}`)).data.unread.fromChristkind).toBe(1);
+    expect((await call<MeView>('GET', `/api/me/${organizerToken}`)).data.recipient).toEqual(organizer.recipient);
+    const after = (await db.read(view.group.id))!;
+    expect(after.assignments).toEqual(before.assignments);
+    expect(after.group.drawn_at).toBe(before.group.drawn_at);
+    expect(after.group.draw_version).toBe(before.group.draw_version);
+    expect(after.messages).toEqual(before.messages);
+    expect((await call('POST', `${admin}/draw`)).data.error).toBe('already-drawn');
+    expect((await call('POST', `${admin}/participants`, { name: 'Zu spät' })).data.error).toBe('already-drawn');
+    expect((await call('DELETE', `${admin}/participants/${id('Oma')}`)).data.error).toBe('already-drawn');
+    expect((await call('POST', `${admin}/exclusions`, { giverId: id('Lisa'), receiverId: id('Anna') })).data.error).toBe('already-drawn');
+    expect((await call('PATCH', `${admin}/participants/${id('Lisa')}`, { partnerId: id('Anna') })).data.error).toBe('already-drawn');
+    for (const path of [admin, invite]) {
+      const body = JSON.stringify((await call('GET', path)).data);
+      for (const token of tokens.values()) expect(body).not.toContain(token);
+      expect(body).not.toContain('receiver_id');
+    }
+  });
+
+  it.each([false, true])('grants exactly one link when claims race with drawn=%s', async (drawn) => {
+    const { admin, view, id } = await setupFamily();
+    if (drawn) expect((await call('POST', `${admin}/draw`)).status).toBe(200);
     const results = await Promise.all(Array.from({ length: 10 }, () =>
       call('POST', `/api/invite/${view.group.inviteCode}/claim`, { participantId: id('Lisa') }),
     ));
@@ -253,7 +291,7 @@ describe('API', () => {
       expect((await call<MeView>('GET', `/api/me/${tokens.get('Oma')}`)).data.me.name).toBe('Oma');
     }
     const invite = `/api/invite/${view.group.inviteCode}`;
-    expect((await call('POST', `${invite}/claim`, { participantId: id('Oma') })).data.error).toBe('already-drawn');
+    expect((await call('POST', `${invite}/claim`, { participantId: id('Oma') })).data.error).toBe('already-claimed');
     expect((await call('POST', `${admin}/draw/reset`)).status).toBe(200);
     expect((await call('POST', `${invite}/claim`, { participantId: id('Oma') })).data.error).toBe('already-claimed');
     expect((await call<MeView>('GET', `/api/me/${tokens.get('Oma')}`)).data.recipient).toBeNull();
@@ -299,7 +337,7 @@ describe('API', () => {
     for (const path of [admin, invite]) expect(JSON.stringify((await call('GET', path)).data)).not.toContain(fresh);
     expect((await call<MeView>('GET', `/api/me/${tokens.get('Lisa')}`)).data.me.linkReissuedAt).toBeNull();
     expect((await call<MeView>('GET', `/api/me/${organizerToken}`)).data.me.name).toBe('Mama');
-    expect((await call('POST', `${invite}/claim`, { participantId: id('Oma') })).data.error).toBe('already-drawn');
+    expect((await call('POST', `${invite}/claim`, { participantId: id('Oma') })).data.error).toBe('already-claimed');
   });
 
   it('scopes claims to their group and rate-limits repeated attempts', async () => {

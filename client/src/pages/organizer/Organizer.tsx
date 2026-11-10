@@ -96,11 +96,10 @@ export function Organizer() {
         <SelfCard view={data} token={token} />
         {group.drawn && data.participants.some((p) => !p.claimed) ? (
           <div role="alert" className="card text-berry-700">
-            <p className="font-bold">Alte persönliche Links wurden gesperrt</p>
+            <p className="font-bold">Noch nicht alle haben ihren Namen ausgewählt</p>
             <p className="mt-2 text-sm">
-              Diese Runde stammt aus der Version ohne Identitätsprüfung. Namen und Wunschzettel bleiben erhalten.
-              Setze die Auslosung zurück, lass alle ihren Namen in der Einladung auswählen und lose neu aus.
-              Bereits bekannte Zuteilungen lassen sich nicht nachträglich geheim machen.
+              Schick den noch fehlenden Personen den Einladungslink. Sie können ihren Namen auch jetzt auswählen
+              und ihre bestehende Zuteilung ansehen. Du musst nicht neu auslosen.
             </p>
           </div>
         ) : null}
@@ -122,8 +121,8 @@ function StatusSteps({ view }: { view: AdminView }) {
   const people = view.participants;
   const steps = [
     { label: 'Familie eintragen', done: people.length >= 3, href: '#familie' },
-    { label: 'Alle melden sich', done: people.length >= 3 && people.every((p) => p.claimed), href: '#einladen' },
     { label: 'Auslosen', done: view.group.drawn, href: '#auslosen' },
+    { label: 'Alle melden sich', done: people.length >= 3 && people.every((p) => p.claimed), href: '#einladen' },
   ];
   const current = steps.findIndex((s) => !s.done);
   return (

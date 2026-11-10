@@ -318,9 +318,6 @@ export function createApp(storage: Storage, options: AppOptions = {}) {
   app.post('/api/admin/:token/draw', async (c) => {
     const mutualPairs = await mutate('admin', c.req.param('token'), (round) => {
       ensureNotDrawn(round);
-      if (round.participants.some((p) => !p.token)) {
-        throw new HttpError(409, 'unclaimed-participants', 'Bitte warte, bis alle ihren Namen in der Einladung ausgewählt haben.');
-      }
       const forbidden = new Set<string>();
       for (const p of round.participants) if (p.partner_id) forbidden.add(pairKey(p.id, p.partner_id));
       for (const e of round.exclusions) forbidden.add(pairKey(e.giver_id, e.receiver_id));
@@ -407,7 +404,6 @@ export function createApp(storage: Storage, options: AppOptions = {}) {
     await limit(c, 'claim');
     const { participantId } = await readJson(c, z.object({ participantId: z.string() }));
     const result = await mutate('invite', c.req.param('code'), (round) => {
-      ensureNotDrawn(round);
       const person = participantOf(round, participantId);
       if (person.token) throw new HttpError(409, 'already-claimed', `„${person.name}“ ist schon vergeben. Verwende deinen gespeicherten Link oder bitte ${round.group.organizer_name} um einen neuen. Wenn du das nicht warst, sag bitte ${round.group.organizer_name} Bescheid.`);
       person.token = newToken(); person.token_source = 'self'; person.claimed_at = nowIso();
