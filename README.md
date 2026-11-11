@@ -4,6 +4,8 @@ Eine warme, familienfreundliche Wichtel-App (Secret Santa auf Österreichisch) �
 
 Online: **https://wichteln.jetzlstorfer.org**
 
+![Startseite von Wichteln mit dem Christkind](docs/screenshot.png)
+
 ## Was die App kann
 
 **Für die Organisatorin / den Organisator**
